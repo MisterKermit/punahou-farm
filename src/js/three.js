@@ -2,6 +2,9 @@ import * as T from 'three';
 // eslint-disable-next-line import/no-unresolved
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+
 import fragment from '../shaders/fragment.glsl';
 import vertex from '../shaders/vertex.glsl';
 
@@ -40,7 +43,7 @@ export default class Three {
     this.clock = new T.Clock();
 
     this.setLights();
-    this.setGeometry();
+    this.setModel();
     this.render();
     this.setResize();
   }
@@ -63,14 +66,30 @@ export default class Three {
     });
 
     this.planeMesh = new T.Mesh(this.planeGeometry, this.planeMaterial);
-    this.scene.add(this.planeMesh);
+
+    // this.scene.add(this.planeMesh);
+  }
+
+
+  setModel() {
+    const loader = new GLTFLoader();
+    loader.load(
+      'src/assets/models/taro/scene.gltf',
+      (gltf) => {
+        this.scene.add(gltf.scene);
+      },
+      undefined,
+      (error) => {
+        console.error('Error loading GLTF model:', error);
+      }
+    );
   }
 
   render() {
     const elapsedTime = this.clock.getElapsedTime();
 
-    this.planeMesh.rotation.x = 0.2 * elapsedTime;
-    this.planeMesh.rotation.y = 0.1 * elapsedTime;
+    // this.planeMesh.rotation.x = 0.2 * elapsedTime;
+    // this.planeMesh.rotation.y = 0.1 * elapsedTime;
 
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(this.render.bind(this));

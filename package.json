@@ -22,7 +22,8 @@
     "lint:fix": "npx eslint --ext js ./src --fix",
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepare": "husky"
   },
   "dependencies": {
     "@vitejs/plugin-legacy": "^6.0.2",
