@@ -8,10 +8,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import fragment from '../shaders/fragment.glsl';
 import vertex from '../shaders/vertex.glsl';
 
+import AnimatedRootSystem from './rootsys.js';
+
 const device = {
   width: window.innerWidth,
   height: window.innerHeight,
-  pixelRatio: window.devicePixelRatio
+  pixelRatio: window.devicePixelRatio 
 };
 
 export default class Three {
@@ -26,7 +28,7 @@ export default class Three {
       0.1,
       100
     );
-    this.camera.position.set(0, 0, 2);
+    this.camera.position.set(0, 0, 10);
     this.scene.add(this.camera);
 
     this.renderer = new T.WebGLRenderer({
@@ -42,41 +44,29 @@ export default class Three {
 
     this.clock = new T.Clock();
 
-    this.setLights();
-    this.setModel();
-    this.render();
-    this.setResize();
+ 
+  this.setLights();
+  this.setModel();
+  this.createRootSys();
+  this.render();
+  this.setResize();
   }
 
   setLights() {
-    this.ambientLight = new T.AmbientLight(new T.Color(1, 1, 1, 1));
-    this.scene.add(this.ambientLight);
+    this.directionLight = new T.DirectionalLight(new T.Color(1, 1, 1, 1));
+    this.scene.add(this.directionLight);
   }
 
-  setGeometry() {
-    this.planeGeometry = new T.PlaneGeometry(1, 1, 128, 128);
-    this.planeMaterial = new T.ShaderMaterial({
-      side: T.DoubleSide,
-      wireframe: true,
-      fragmentShader: fragment,
-      vertexShader: vertex,
-      uniforms: {
-        progress: { type: 'f', value: 0 }
-      }
-    });
-
-    this.planeMesh = new T.Mesh(this.planeGeometry, this.planeMaterial);
-
-    // this.scene.add(this.planeMesh);
+  createRootSys() {
+    this.RootSystem = new AnimatedRootSystem(this.scene);
   }
-
 
   setModel() {
     const loader = new GLTFLoader();
     loader.load(
       'src/assets/models/taro/scene.gltf',
       (gltf) => {
-        this.scene.add(gltf.scene);
+        // this.scene.add(gltf.scene);
       },
       undefined,
       (error) => {
@@ -86,10 +76,19 @@ export default class Three {
   }
 
   render() {
-    const elapsedTime = this.clock.getElapsedTime();
+  const elapsedTime = this.clock.getElapsedTime();
+  const deltaTime = this.clock.getDelta() * 10000; // convert to ms
 
-    // this.planeMesh.rotation.x = 0.2 * elapsedTime;
-    // this.planeMesh.rotation.y = 0.1 * elapsedTime;
+    // Uncomment if you want to rotate something
+    // if (this.planeMesh) {
+    //   this.planeMesh.rotation.x = 0.2 * elapsedTime;
+    //   this.planeMesh.rotation.y = 0.1 * elapsedTime;
+    // }
+
+    // Update root system animation
+    if (this.RootSystem) {
+      this.RootSystem.update(deltaTime);
+    }
 
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(this.render.bind(this));
@@ -109,4 +108,5 @@ export default class Three {
     this.renderer.setSize(device.width, device.height);
     this.renderer.setPixelRatio(Math.min(device.pixelRatio, 2));
   }
+
 }
