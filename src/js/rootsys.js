@@ -10,12 +10,12 @@ class KDNode {
 export default class AnimatedRootSystem {
   constructor(scene, {
     depth = 10,
-    baseBranchLength = 4,
-    spread = 3,
+    baseBranchLength = 10,
+    spread = 5,
     maxChildren = 10,
     branchDecay = 1,
     branchChance = 1,
-    growthSpeed = 2 // ms between new branches
+    growthSpeed = 0 // ms between new branches
   } = {}) {
     this.scene = scene;
 
@@ -59,36 +59,58 @@ export default class AnimatedRootSystem {
 
     const numChildren = Math.floor(Math.random() * this.maxChildren) + 1;
     console.log('growNode: Creating', numChildren, 'children at depth', depth);
+    for (let i = 0; i < this.maxChildren; i++) {
+      const branch = []
+      for (let j = 0; j < depth; j++) {
+        // branchLength *= Math.random() + 0.5; // slight random variation
+        const dx = (Math.random() - 0.5) * this.spread;
+        const dz = (Math.random() - 0.5) * this.spread;
+        const dy = -branchLength * (0.8 + Math.random() * 0.4);
 
-    for (let i = 0; i < numChildren; i++) {
-      const dx = (Math.random() - 0.5) * this.spread * (depth / this.depth);
-      const dz = (Math.random() - 0.5) * this.spread * (depth / this.depth);
-      const dy = -branchLength * (0.8 + Math.random() * 0.4);
+        const childPoint = new THREE.Vector3(
+          node.point.x + dx,
+          node.point.y + dy,
+          node.point.z + dz
+        );
 
-      const childPoint = new THREE.Vector3(
-        node.point.x + dx,
-        node.point.y + dy,
-        node.point.z + dz
-      );
+        const child = new KDNode(childPoint);
 
-      const child = new KDNode(childPoint);
-      node.children.push(child);
+        branch.push(child);
 
-      // draw visuals
-      this.drawLine(node.point, childPoint);
-      this.addSphere(childPoint, 0.25 * (depth / this.depth) + 0.05);
+        // draw visuals
+        this.addSphere(childPoint, 0.1 * (depth / this.depth) + 0.05);
 
-      // push to growth queue for later expansion
-      this.growthQueue.push([child, depth - 1, branchLength * this.branchDecay]);
-      console.log('growNode: Added child to growthQueue, new length =', this.growthQueue.length);
+        // push to growth queue for later expansion
+        // this.growthQueue.push([child, depth - 1, branchLength * this.branchDecay]);
+        console.log('growNode: Added child to growthQueue, new length =', this.growthQueue.length);
+      }
+      node.children.push(branch);
+
+      this.drawSpline(node.point, node.children);
     }
+
   }
 
-  drawLine(p1, p2) {
-    const geometry = new THREE.BufferGeometry().setFromPoints([p1, p2]);
-    const material = new THREE.LineBasicMaterial({ color: 0x8b4513 });
-    const line = new THREE.Line(geometry, material);
-    this.scene.add(line);
+  drawSpline(nodePoint, childPoints) {
+    // Build array of THREE.Vector3: parent + all children
+    for (let i = 0; i < childPoints.length; i++) {
+      const pointlocations = [nodePoint];
+
+      childPoints[i].forEach((kdNode) => {
+        if (kdNode && kdNode.point) {
+          pointlocations.push(kdNode.point);
+        }
+      });
+
+      if (pointlocations.length > 1) {
+        const curve = new THREE.CatmullRomCurve3(pointlocations);
+        const points = curve.getPoints(50);
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+        const curveObject = new THREE.Line(geometry, material);
+        this.scene.add(curveObject);
+      }
+    }
   }
 
   addSphere(position, radius = 0.3) {
