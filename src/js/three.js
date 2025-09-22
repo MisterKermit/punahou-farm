@@ -4,7 +4,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-
 import fragment from '../shaders/fragment.glsl';
 import vertex from '../shaders/vertex.glsl';
 
@@ -13,7 +12,7 @@ import AnimatedRootSystem from './rootsys.js';
 const device = {
   width: window.innerWidth,
   height: window.innerHeight,
-  pixelRatio: window.devicePixelRatio 
+  pixelRatio: window.devicePixelRatio
 };
 
 export default class Three {
@@ -44,12 +43,11 @@ export default class Three {
 
     this.clock = new T.Clock();
 
- 
-  this.setLights();
-  this.setModel();
-  this.createRootSys();
-  this.render();
-  this.setResize();
+    this.setLights();
+    this.setModel();
+    this.createRootSys();
+    this.render();
+    this.setResize();
   }
 
   setLights() {
@@ -76,8 +74,8 @@ export default class Three {
   }
 
   render() {
-  const elapsedTime = this.clock.getElapsedTime();
-  const deltaTime = this.clock.getDelta() * 10000; // convert to ms
+    const elapsedTime = this.clock.getElapsedTime();
+    const deltaTime = this.clock.getDelta() * 10000; // convert to ms
 
     // Uncomment if you want to rotate something
     // if (this.planeMesh) {
@@ -108,5 +106,4 @@ export default class Three {
     this.renderer.setSize(device.width, device.height);
     this.renderer.setPixelRatio(Math.min(device.pixelRatio, 2));
   }
-
 }
