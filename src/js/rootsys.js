@@ -10,10 +10,7 @@ class KDNode {
 }
 
 export default class AnimatedRootSystem {
-  constructor(
-    scene,
-    options = {}
-  ) {
+  constructor(scene, options = {}) {
     const {
       depth,
       baseBranchLength,
@@ -21,7 +18,7 @@ export default class AnimatedRootSystem {
       maxChildren,
       branchDecay,
       branchChance,
-      growthSpeed,
+      growthSpeed
     } = options;
 
     this.scene = scene;
@@ -46,7 +43,7 @@ export default class AnimatedRootSystem {
     this.lastGrowthTime = 0;
   }
 
-  update(deltaTime) {
+  update(deltaTime, elapsedTime) {
     this.lastGrowthTime += deltaTime;
     // Debug: log growth queue length and lastGrowthTime
     console.log(
@@ -70,14 +67,19 @@ export default class AnimatedRootSystem {
     if (Math.random() > this.branchChance) return;
 
     branchLength = Math.random() * this.baseBranchLength;
-    const numChildren = Math.floor(Math.random() * this.maxChildren);
+    const numberChildren = Math.floor(Math.random() * this.maxChildren);
 
-    console.log('growNode: Creating', numChildren, 'children at depth', depth);
+    console.log(
+      'growNode: Creating',
+      numberChildren,
+      'children at depth',
+      depth
+    );
 
-    for (let i = 0; i < this.maxChildren; i++) {
+    for (let index = 0; index < this.maxChildren; index++) {
       const branch = [];
       let positionPointer = node.point.clone();
-      for (let j = 0; j < depth; j++) {
+      for (let index = 0; index < depth; index++) {
         // branchLength *= Math.random() + 0.5; // slight random variation
         const dx = (Math.random() - 0.5) * this.spread;
         const dz = (Math.random() - 0.5) * this.spread;
@@ -113,14 +115,14 @@ export default class AnimatedRootSystem {
 
   drawSpline(nodePoint, childPoints) {
     // Build array of THREE.Vector3: parent + all children
-    for (let i = 0; i < childPoints.length; i++) {
+    for (const childPoint of childPoints) {
       const pointlocations = [nodePoint];
 
-      childPoints[i].forEach((kdNode) => {
+      for (const kdNode of childPoint) {
         if (kdNode && kdNode.point) {
           pointlocations.push(kdNode.point);
         }
-      });
+      }
 
       if (pointlocations.length > 1) {
         const curve = new THREE.CatmullRomCurve3(
@@ -131,7 +133,7 @@ export default class AnimatedRootSystem {
         );
         const points = curve.getPoints(50);
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+        const material = new THREE.LineBasicMaterial({ color: 0xFF_00_00 });
         const curveObject = new THREE.Line(geometry, material);
         // this.scene.add(curveObject);
         this.addRootCapsule(curve);
@@ -142,7 +144,7 @@ export default class AnimatedRootSystem {
   addSphere(position, radius = 0.3) {
     const geometry = new THREE.SphereGeometry(radius, 12, 12);
     const material = new THREE.MeshStandardMaterial({
-      color: 0x654321,
+      color: 0x65_43_21,
       roughness: 0.8,
       metalness: 0.2
     });
@@ -157,8 +159,8 @@ export default class AnimatedRootSystem {
     let frames = curve.computeFrenetFrames(texSize - 1);
 
     let data = [];
-    points.forEach((p) => data.push(p.x, p.y, p.z, 0));
-    frames.tangents.forEach((t) => data.push(t.x, t.y, t.z, 0));
+    for (const p of points) data.push(p.x, p.y, p.z, 0);
+    for (const t of frames.tangents) data.push(t.x, t.y, t.z, 0);
 
     let dataTex = new THREE.DataTexture(
       new Float32Array(data),
@@ -198,11 +200,11 @@ export default class AnimatedRootSystem {
     // === Material with custom vertex shader to bend along curve ===
     let uniforms = {
       curveTex: { value: dataTex },
-      stretchRatio: { value: 1.0 }
+      stretchRatio: { value: 1 }
     };
 
     let mat = new THREE.MeshLambertMaterial({
-      color: 0x88ccff,
+      color: 0x88_CC_FF,
       onBeforeCompile: (shader) => {
         shader.uniforms.curveTex = uniforms.curveTex;
         shader.uniforms.stretchRatio = uniforms.stretchRatio;
@@ -222,7 +224,7 @@ export default class AnimatedRootSystem {
         ` + shader.vertexShader;
 
         shader.vertexShader = shader.vertexShader.replace(
-          `#include <beginnormal_vertex>`,
+          '#include <beginnormal_vertex>',
           `#include <beginnormal_vertex>
 
             vec3 pos = position;
@@ -238,7 +240,7 @@ export default class AnimatedRootSystem {
         );
 
         shader.vertexShader = shader.vertexShader.replace(
-          `#include <begin_vertex>`,
+          '#include <begin_vertex>',
           `#include <begin_vertex>
             transformed = rot * pos;
             transformed += cpos;
