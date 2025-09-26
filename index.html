@@ -85,8 +85,42 @@
     <noscript class="text-center text-lg text-red-500">
         JavaScript must be enabled for this app to run.
     </noscript>
-    <main class="flex h-full bg-primary text-color">
+    <main class="relative flex h-full bg-primary text-color">
       <canvas id="canvas" class="z-[0] h-full w-full"></canvas>
+      <button
+        id="debug-menu-open"
+        class="absolute bottom-4 right-4 z-[4] bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg"
+        onclick="document.querySelector('#debug-menu').classList.toggle('hidden')"
+      >
+      Open
+      </button>
+      <div
+        id="debug-menu"
+        class="absolute bottom-4 right-4 z-[5] bg-gray-800 text-white px-4 py-4 rounded-lg shadow-lg hidden h-64 w-64 flex flex-col"
+      >
+        <div class="flex items-center justify-between">
+          <button
+            class="px-2"
+            onclick="document.querySelector('#debug-menu').classList.toggle('hidden')"
+          >
+          X
+          </button>
+
+          <h3
+            class="flex-grow text-center underline decoration-stone-500"
+          >
+          Debug Menu
+          </h3>
+
+          <div class="w-6"></div>
+
+        </div>
+        <div
+          id="debug-menu-content"
+          class="flex-1 overflow-y-scroll p-2 text-gray-500"
+        >
+        </div>
+      </div>
       <a
         id="github"
         title="Check out the code on GitHub"

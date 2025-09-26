@@ -12,16 +12,18 @@ class KDNode {
 export default class AnimatedRootSystem {
   constructor(
     scene,
-    {
-      depth = 6,
-      baseBranchLength = 5,
-      spread = 2,
-      maxChildren = 20,
-      branchDecay = 0.8,
-      branchChance = 0.75,
-      growthSpeed = 0 // ms between new branches
-    } = {}
+    options = {}
   ) {
+    const {
+      depth,
+      baseBranchLength,
+      spread,
+      maxChildren,
+      branchDecay,
+      branchChance,
+      growthSpeed,
+    } = options;
+
     this.scene = scene;
 
     // parameters
@@ -222,7 +224,7 @@ export default class AnimatedRootSystem {
         shader.vertexShader = shader.vertexShader.replace(
           `#include <beginnormal_vertex>`,
           `#include <beginnormal_vertex>
-          
+
             vec3 pos = position;
             float u = clamp(pos.z + 0.5, 0., 1.) * stretchRatio;
 

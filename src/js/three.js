@@ -43,6 +43,16 @@ export default class Three {
 
     this.clock = new T.Clock();
 
+    this.options = {
+      depth: 6,
+      baseBranchLength: 5,
+      spread: 2,
+      maxChildren: 20,
+      branchDecay: 0.8,
+      branchChance: 0.75,
+      growthSpeed: 0 // ms between new branches
+    }
+
     this.setLights();
     this.setModel();
     this.createRootSys();
@@ -56,7 +66,8 @@ export default class Three {
   }
 
   createRootSys() {
-    this.RootSystem = new AnimatedRootSystem(this.scene);
+    document.querySelector('#debug-menu-content').textContent = JSON.stringify(this.options, null, 2);
+    this.RootSystem = new AnimatedRootSystem(this.scene, this.options);
   }
 
   setModel() {
