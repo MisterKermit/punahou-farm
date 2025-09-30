@@ -1,7 +1,7 @@
 import '../css/global.css';
 import '../scss/global.scss';
 
-import Three from './three';
+import Three from './three.js';
 
 document.addEventListener('DOMContentLoaded', () => {});
 

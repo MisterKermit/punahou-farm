@@ -1,29 +1,38 @@
 import * as THREE from 'three';
-import { VerticalTiltShiftShader } from 'three/examples/jsm/Addons.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
+class RootSegment {
+  constructor(start, end, rootPoints) {
+    this.start = start;
+    this.end = end;
+    this.rootPoints = rootPoints; // array of THREE.Vector3
+  }
+}
+
 class KDNode {
-  constructor(point) {
+  constructor(point, radius, depth) {
     this.point = point;
-    this.children = [];
+    this.radius = radius;
+    this.depth = depth;
   }
 }
 
 export default class AnimatedRootSystem {
   constructor(scene, {
-    depth = 6,
+    maxDepth = 6,
     baseBranchLength = 5,
     spread = 2,
     maxChildren = 20,
-    branchDecay = 0.8,
+    branchDecay = 0.4,
     branchChance = 0.75,
     growthSpeed = 0 // ms between new branches
   } = {}) {
     this.scene = scene;
 
     // parameters
-    this.depth = depth;
+    this.maxDepth = maxDepth;
     this.baseBranchLength = baseBranchLength;
+    this.startRadius = 2.0
     this.spread = spread;
     this.maxChildren = maxChildren;
     this.branchDecay = branchDecay;
@@ -31,8 +40,8 @@ export default class AnimatedRootSystem {
     this.growthSpeed = growthSpeed;
 
     // root node at origin
-    this.root = new KDNode(new THREE.Vector3(0, 0, 0));
-    this.addSphere(this.root.point, 0.3);
+    this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
+    // this.addSphere(this.root.point, 0.6);
 
     // growth queue (holds [node, depth, branchLength])
     this.growthQueue = [[this.root, depth, baseBranchLength]];
@@ -51,51 +60,56 @@ export default class AnimatedRootSystem {
       this.lastGrowthTime = 0;
       const [node, depth, branchLength] = this.growthQueue.shift();
       console.log('Growing node at depth', depth, 'branchLength', branchLength);
-      this.growNode(node, depth, branchLength);
+
+      for (let children = 0; children < this.maxChildren; i++) {
+        this.growNode(node, depth, branchLength);
+      }
+
     }
   }
 
+  
+
   growNode(node, depth, branchLength) {
     if (depth <= 0) return;
-    if (Math.random() > this.branchChance) return;
 
-    branchLength = Math.random() * this.baseBranchLength;
-    const numChildren = Math.floor(Math.random() * this.maxChildren);
+    const childPoints = [];
 
-    console.log('growNode: Creating', numChildren, 'children at depth', depth);
 
-    for (let i = 0; i < this.maxChildren; i++) {
-      const branch = []
-      let positionPointer = node.point.clone();
-      for (let j = 0; j < depth; j++) {
-        // branchLength *= Math.random() + 0.5; // slight random variation
-        const dx = (Math.random() - 0.5) * this.spread;
-        const dz = (Math.random() - 0.5) * this.spread;
-        const dy = -branchLength * (0.2 + Math.random() * 0.4);
+    for (let currentDepth = 1; currentDepth <= this.maxDepth; i++) {
+      
+      const currentPos = node.point.clone();
+      const randomLength = branchLength * (0.7 + Math.random() * 0.6); // vary length a bit
 
-        const childPoint = new THREE.Vector3(
-          positionPointer.x + dx,
-          positionPointer.y + dy,
-          positionPointer.z + dz
-        );
+      const dx = (Math.random() - 0.5) * this.spread;
+      const dy = (Math.random() - 0.5) * this.spread;
+      const dz = -(Math.random() - 0.5) * this.spread; // generally grow downwards
 
-        positionPointer = childPoint.clone();
+      const dirVector = new THREE.Vector3(
+        dx,
+        dy,
+        dz
+      ).normalize();
 
-        const child = new KDNode(childPoint);
+      const noiseVector = new THREE.Vector3(
+        (Math.random() - 0.5) * randomLength,
+        (Math.random() - 0.5) * randomLength,
+        (Math.random() - 0.5) * randomLength
+      );
+      
+      const endPosVector = currentPos.clone().add(dirVector.multiplyScalar(branchLength)).add(noiseVector);
+      
+      const radius = this.startRadius * (1/currentDepth);
 
-        branch.push(child);
+      const endPoint = new KDNode(endPosVector, radius, currentDepth);
 
-        // draw visuals
-        this.addSphere(childPoint, 0.1 * (depth / this.depth) + 0.05);
+      const branch = new RootSegment(currentPos, endPoint, childPoints);
+      
+      
+      this.growthQueue.push(endPoint, currentDepth, currentPos.distanceTo(endPosVector));
 
-        // push to growth queue for later expansion
-        // this.growthQueue.push([child, depth - 1, branchLength * this.branchDecay]);
-        console.log('growNode: Added child to growthQueue, new length =', this.growthQueue.length);
-      }
-      node.children.push(branch);
-
-      this.drawSpline(node.point, node.children);
     }
+    
 
   }
 
@@ -122,7 +136,7 @@ export default class AnimatedRootSystem {
     }
   }
 
-  addSphere(position, radius = 0.3) {
+  addSphere(position, radius = 0.9) {
     const geometry = new THREE.SphereGeometry(radius, 12, 12);
     const material = new THREE.MeshStandardMaterial({
       color: 0x654321,
@@ -150,8 +164,8 @@ export default class AnimatedRootSystem {
     let r = 0.1, rsegs = 12, csegs = 100;
     let capsuleGeo = mergeGeometries([
       new THREE.SphereGeometry(r, rsegs, Math.floor(rsegs * 0.5), 0, Math.PI * 2, 0, Math.PI * 0.5).translate(0, 0.5, 0),
-      new THREE.CylinderGeometry(r, r, 1, rsegs, csegs, true),
-      new THREE.SphereGeometry(r, rsegs, Math.floor(rsegs * 0.5), 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5).translate(0, -0.5, 0)
+      new THREE.CylinderGeometry(r, r * this.branchDecay, 1, rsegs, csegs, true),
+      new THREE.SphereGeometry(r * this.branchDecay, rsegs, Math.floor(rsegs * 0.5), 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5).translate(0, -0.5, 0)
     ]).rotateX(-Math.PI * 0.5);
 
     // === Material with custom vertex shader to bend along curve ===

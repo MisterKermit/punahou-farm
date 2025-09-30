@@ -45,11 +45,11 @@ export default class Three {
     this.clock = new T.Clock();
 
  
-  this.setLights();
-  this.setModel();
-  this.createRootSys();
-  this.render();
-  this.setResize();
+    this.setLights();
+    this.setModel();
+    this.createRootSys();
+    this.render();
+    this.setResize();
   }
 
   setLights() {
