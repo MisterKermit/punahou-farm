@@ -21,11 +21,12 @@ export default class AnimatedRootSystem {
   constructor(scene, {
     maxDepth = 6,
     baseBranchLength = 5,
-    spread = 2,
+    spread = 0.01,
     maxChildren = 20,
     branchDecay = 0.4,
     branchChance = 0.75,
-    growthSpeed = 0 // ms between new branches
+    growthSpeed = 0, // ms between new branches
+    startingBranches = 5
   } = {}) {
     this.scene = scene;
 
@@ -38,13 +39,17 @@ export default class AnimatedRootSystem {
     this.branchDecay = branchDecay;
     this.branchChance = branchChance;
     this.growthSpeed = growthSpeed;
-
+    this.startingBranches = startingBranches;
     // root node at origin
     this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
-    // this.addSphere(this.root.point, 0.6);
+    this.addSphere(this.root.point, 0.6);
 
     // growth queue (holds [node, depth, branchLength])
-    this.growthQueue = [[this.root, depth, baseBranchLength]];
+    this.growthQueue = [[this.root, 0, this.baseBranchLength]];
+
+    for (let i = 0; i < this.startingBranches; i++) {
+      this.growthQueue.push([this.root, this.root.depth, this.baseBranchLength]);
+    }
 
     // start animation
     this.lastGrowthTime = 0;
@@ -56,34 +61,35 @@ export default class AnimatedRootSystem {
     console.log('update: growthQueue.length =', this.growthQueue.length, 'lastGrowthTime =', this.lastGrowthTime);
 
     // add one branch per tick (controlled by growthSpeed)
-    if (this.lastGrowthTime > this.growthSpeed && this.growthQueue.length > 0) {
+    if (this.growthQueue.length > 0) {
       this.lastGrowthTime = 0;
       const [node, depth, branchLength] = this.growthQueue.shift();
       console.log('Growing node at depth', depth, 'branchLength', branchLength);
 
-      for (let children = 0; children < this.maxChildren; i++) {
+      if (depth < this.maxDepth) {
         this.growNode(node, depth, branchLength);
       }
-
     }
   }
 
-  
-
   growNode(node, depth, branchLength) {
-    if (depth <= 0) return;
+    if (depth < 0) return;
 
     const childPoints = [];
 
+    const homePoint = node.point.clone();
 
-    for (let currentDepth = 1; currentDepth <= this.maxDepth; i++) {
+    childPoints.push(homePoint);
+    
+    const currentPos = node.point.clone();
+
+    for (let currentDepth = depth; currentDepth <= depth + this.maxDepth; currentDepth++) {
       
-      const currentPos = node.point.clone();
       const randomLength = branchLength * (0.7 + Math.random() * 0.6); // vary length a bit
 
-      const dx = (Math.random() - 0.5) * this.spread;
-      const dy = (Math.random() - 0.5) * this.spread;
-      const dz = -(Math.random() - 0.5) * this.spread; // generally grow downwards
+      const dx = (Math.random() - 0.5) * this.spread; // small left/right
+      const dy = -Math.abs(Math.random() * this.spread * 2); // always negative, larger magnitude for downward growth
+      const dz = (Math.random() - 0.5) * this.spread; // small forward/back
 
       const dirVector = new THREE.Vector3(
         dx,
@@ -91,49 +97,71 @@ export default class AnimatedRootSystem {
         dz
       ).normalize();
 
+
+      /*
+        Potential for additional noise in growth direction 
+        i.e influence future nosie function that changes based on environment tweaks
+      */
       const noiseVector = new THREE.Vector3(
-        (Math.random() - 0.5) * randomLength,
-        (Math.random() - 0.5) * randomLength,
-        (Math.random() - 0.5) * randomLength
-      );
+        (Math.random() - 0.5) * this.spread,
+        (Math.random() - 0.5) * this.spread,
+        -(Math.random() - 0.5) * this.spread
+      ).normalize();
       
-      const endPosVector = currentPos.clone().add(dirVector.multiplyScalar(branchLength)).add(noiseVector);
+      // const endPosVector = currentPos.clone().add(dirVector.multiplyScalar(randomLength)).add(noiseVector);
+
+      const endPosVector = currentPos.clone().add(dirVector.multiplyScalar(randomLength))
+
       
       const radius = this.startRadius * (1/currentDepth);
 
       const endPoint = new KDNode(endPosVector, radius, currentDepth);
-
-      const branch = new RootSegment(currentPos, endPoint, childPoints);
       
-      
-      this.growthQueue.push(endPoint, currentDepth, currentPos.distanceTo(endPosVector));
+      childPoints.push(endPosVector);
 
+      if (currentDepth === depth + this.maxDepth) {
+        childPoints.push(endPosVector);
+        const branch = new RootSegment(homePoint, endPoint, childPoints);
+        this.drawSpline(branch);
+        this.growthQueue.push([endPoint, currentDepth, homePoint.distanceTo(endPosVector)]);
+      }
+
+      currentPos.copy(endPosVector);
+
+      this.addSphere(endPosVector, 0.1);
     }
-    
-
   }
 
-  drawSpline(nodePoint, childPoints) {
+  drawSpline(branch) {
     // Build array of THREE.Vector3: parent + all children
-    for (let i = 0; i < childPoints.length; i++) {
-      const pointlocations = [nodePoint];
+    // for (let i = 0; i < childPoints.length; i++) {
+    //   const pointlocations = [nodePoint];
 
-      childPoints[i].forEach((kdNode) => {
-        if (kdNode && kdNode.point) {
-          pointlocations.push(kdNode.point);
-        }
-      });
+    //   childPoints[i].forEach((kdNode) => {
+    //     if (kdNode && kdNode.point) {
+    //       pointlocations.push(kdNode.point);
+    //     }
+    //   });
 
-      if (pointlocations.length > 1) {
-        const curve = new THREE.CatmullRomCurve3(pointlocations, false, 'catmullrom', 0.3);
+    //   if (pointlocations.length > 1) {
+    //     const curve = new THREE.CatmullRomCurve3(pointlocations, false, 'catmullrom', 0.3);
+    //     const points = curve.getPoints(50);
+    //     const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    //     const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+    //     const curveObject = new THREE.Line(geometry, material);
+    //     this.scene.add(curveObject);
+    //     // this.addRootCapsule(curve);
+    //   }
+    // }
+    if (branch.rootPoints.length > 0) {
+        const curve = new THREE.CatmullRomCurve3(branch.rootPoints, false, 'catmullrom', 0.3);
         const points = curve.getPoints(50);
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
         const curveObject = new THREE.Line(geometry, material);
-        // this.scene.add(curveObject);
-        this.addRootCapsule(curve);
-      }
+        this.scene.add(curveObject);
     }
+
   }
 
   addSphere(position, radius = 0.9) {
@@ -147,81 +175,5 @@ export default class AnimatedRootSystem {
     sphere.position.copy(position);
     this.scene.add(sphere);
   }
-
-  addRootCapsule(curve) {
-    let texSize = 512;
-    let points = curve.getSpacedPoints(texSize - 1);
-    let frames = curve.computeFrenetFrames(texSize - 1);
-
-    let data = [];
-    points.forEach(p => data.push(p.x, p.y, p.z, 0));
-    frames.tangents.forEach(t => data.push(t.x, t.y, t.z, 0));
-
-    let dataTex = new THREE.DataTexture(new Float32Array(data), texSize, 2, THREE.RGBAFormat, THREE.FloatType);
-    dataTex.needsUpdate = true;
-
-    // === Capsule geometry ===
-    let r = 0.1, rsegs = 12, csegs = 100;
-    let capsuleGeo = mergeGeometries([
-      new THREE.SphereGeometry(r, rsegs, Math.floor(rsegs * 0.5), 0, Math.PI * 2, 0, Math.PI * 0.5).translate(0, 0.5, 0),
-      new THREE.CylinderGeometry(r, r * this.branchDecay, 1, rsegs, csegs, true),
-      new THREE.SphereGeometry(r * this.branchDecay, rsegs, Math.floor(rsegs * 0.5), 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5).translate(0, -0.5, 0)
-    ]).rotateX(-Math.PI * 0.5);
-
-    // === Material with custom vertex shader to bend along curve ===
-    let uniforms = {
-      curveTex: { value: dataTex },
-      stretchRatio: { value: 1.0 }
-    };
-
-    let mat = new THREE.MeshLambertMaterial({
-      color: 0x88ccff,
-      onBeforeCompile: shader => {
-        shader.uniforms.curveTex = uniforms.curveTex;
-        shader.uniforms.stretchRatio = uniforms.stretchRatio;
-
-        shader.vertexShader = `
-          uniform sampler2D curveTex;
-          uniform float stretchRatio;
-
-          mat3 calcLookAtMatrix(vec3 origin, vec3 target, float roll) {
-            vec3 rr = vec3(sin(roll), cos(roll), 0.0);
-            vec3 ww = normalize(target - origin);
-            vec3 uu = normalize(cross(ww, rr));
-            vec3 vv = normalize(cross(uu, ww));
-            return -mat3(uu, vv, ww);
-          }
-        ` + shader.vertexShader;
-
-        shader.vertexShader = shader.vertexShader.replace(
-          `#include <beginnormal_vertex>`,
-          `#include <beginnormal_vertex>
-          
-            vec3 pos = position;
-            float u = clamp(pos.z + 0.5, 0., 1.) * stretchRatio;
-
-            vec3 cpos = vec3(texture(curveTex, vec2(u, 0.25)));
-            vec3 ctan = vec3(texture(curveTex, vec2(u, 0.75)));
-
-            mat3 rot = calcLookAtMatrix(vec3(0), -ctan, 0.0);
-
-            objectNormal = normalize(rot * objectNormal);
-          `
-        );
-
-        shader.vertexShader = shader.vertexShader.replace(
-          `#include <begin_vertex>`,
-          `#include <begin_vertex>
-            transformed = rot * pos;
-            transformed += cpos;
-          `
-        );
-      }
-    });
-
-    // === Capsule mesh ===
-    let capsule = new THREE.Mesh(capsuleGeo, mat);
-    capsule.frustumCulled = false;
-    this.scene.add(capsule);
-  }
+   
 }
