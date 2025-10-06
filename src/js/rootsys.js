@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { metalness } from 'three/tsl';
 
 class RootSegment {
-  constructor(start, end, rootPoints) {
+  constructor(start, end, rootPoints, branchRadii) {
     this.start = start;
     this.end = end;
     this.rootPoints = rootPoints; // array of THREE.Vector3
+    this.branchRadii = branchRadii;
   }
 }
 
@@ -33,7 +35,7 @@ export default class AnimatedRootSystem {
     // parameters
     this.maxDepth = maxDepth;
     this.baseBranchLength = baseBranchLength;
-    this.startRadius = 2.0
+    this.startRadius = 0.3
     this.spread = spread;
     this.maxChildren = maxChildren;
     this.branchDecay = branchDecay;
@@ -58,13 +60,13 @@ export default class AnimatedRootSystem {
   update(deltaTime) {
     this.lastGrowthTime += deltaTime;
     // Debug: log growth queue length and lastGrowthTime
-    console.log('update: growthQueue.length =', this.growthQueue.length, 'lastGrowthTime =', this.lastGrowthTime);
+    // console.log('update: growthQueue.length =', this.growthQueue.length, 'lastGrowthTime =', this.lastGrowthTime);
 
     // add one branch per tick (controlled by growthSpeed)
     if (this.growthQueue.length > 0) {
       this.lastGrowthTime = 0;
       const [node, depth, branchLength] = this.growthQueue.shift();
-      console.log('Growing node at depth', depth, 'branchLength', branchLength);
+      // console.log('Growing node at depth', depth, 'branchLength', branchLength);
 
       if (depth < this.maxDepth) {
         this.growNode(node, depth, branchLength);
@@ -76,20 +78,24 @@ export default class AnimatedRootSystem {
     if (depth < 0) return;
 
     const childPoints = [];
+    
+    const radii = [];
 
     const homePoint = node.point.clone();
 
     childPoints.push(homePoint);
+
+    radii.push(node.radius)
     
     const currentPos = node.point.clone();
 
-    for (let currentDepth = depth; currentDepth <= depth + this.maxDepth; currentDepth++) {
+    for (let currentDepth = depth + 1; currentDepth <= depth + this.maxDepth; currentDepth++) {
       
       const randomLength = branchLength * (0.7 + Math.random() * 0.6); // vary length a bit
 
-      const dx = (Math.random() - 0.5) * this.spread; // small left/right
-      const dy = -Math.abs(Math.random() * this.spread * 2); // always negative, larger magnitude for downward growth
-      const dz = (Math.random() - 0.5) * this.spread; // small forward/back
+      const dx = (Math.random() * 2 - 1) * this.spread * 0.2; // small left/right
+      const dy = -Math.abs(Math.random() * this.spread); // always negative, larger magnitude for downward growth
+      const dz = (Math.random() * 2 - 1) * this.spread * 0.2; // small forward/back
 
       const dirVector = new THREE.Vector3(
         dx,
@@ -112,16 +118,21 @@ export default class AnimatedRootSystem {
 
       const endPosVector = currentPos.clone().add(dirVector.multiplyScalar(randomLength))
 
-      
+    
       const radius = this.startRadius * (1/currentDepth);
+      console.log('radius at depth', currentDepth, 'is', radius);
+      
 
       const endPoint = new KDNode(endPosVector, radius, currentDepth);
       
       childPoints.push(endPosVector);
 
+      radii.push(radius);
+
       if (currentDepth === depth + this.maxDepth) {
-        childPoints.push(endPosVector);
-        const branch = new RootSegment(homePoint, endPoint, childPoints);
+        // childPoints.push(endPosVector);
+        // radii.push()
+        const branch = new RootSegment(homePoint, endPoint, childPoints, radii);
         this.drawSpline(branch);
         this.growthQueue.push([endPoint, currentDepth, homePoint.distanceTo(endPosVector)]);
       }
@@ -133,35 +144,68 @@ export default class AnimatedRootSystem {
   }
 
   drawSpline(branch) {
-    // Build array of THREE.Vector3: parent + all children
-    // for (let i = 0; i < childPoints.length; i++) {
-    //   const pointlocations = [nodePoint];
-
-    //   childPoints[i].forEach((kdNode) => {
-    //     if (kdNode && kdNode.point) {
-    //       pointlocations.push(kdNode.point);
-    //     }
-    //   });
-
-    //   if (pointlocations.length > 1) {
-    //     const curve = new THREE.CatmullRomCurve3(pointlocations, false, 'catmullrom', 0.3);
-    //     const points = curve.getPoints(50);
-    //     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    //     const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-    //     const curveObject = new THREE.Line(geometry, material);
-    //     this.scene.add(curveObject);
-    //     // this.addRootCapsule(curve);
-    //   }
-    // }
     if (branch.rootPoints.length > 0) {
-        const curve = new THREE.CatmullRomCurve3(branch.rootPoints, false, 'catmullrom', 0.3);
-        const points = curve.getPoints(50);
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-        const curveObject = new THREE.Line(geometry, material);
-        this.scene.add(curveObject);
-    }
+        const curve = new THREE.CatmullRomCurve3(branch.rootPoints, false, 'catmullrom', 1);
+        const points = curve.getPoints(branch.rootPoints.length * 5);
 
+        const tubeGeom = new THREE.TubeGeometry(curve, 64, 0.05, 8, false);
+        const tubeMat = new THREE.MeshDepthMaterial({
+          color: 0xffffff,
+          roughness: 0.6, 
+          metalness: 0
+        });
+
+        const curveObject = new THREE.Mesh(tubeGeom, tubeMat);
+        this.scene.add(curveObject);
+
+        this.genRootMesh(points, curve, branch.branchRadii);
+    }
+  }
+
+  genRootMesh(curvePoints, curve, radius) {
+    const radialSegments = 20;
+    const numpoints = curvePoints.length;
+
+    const radiusLength = radius.length;
+
+    // Create a CatmullRomCurve3 from the points
+    // const curve = new THREE.CatmullRomCurve3(curvePoints, false, 'catmullrom', 1);
+
+    // Get Frenet frames for the curve
+    const frames = curve.computeFrenetFrames(numpoints, false);
+
+    // For visualization: draw small spheres at each circle point
+    for (let i = 0; i < numpoints; i++) {
+      const u = i / (numpoints - 1);
+      const pos = curve.getPointAt(u);
+
+      // Example: radius can be constant or vary along the curve
+      const t = (radiusLength - 1) * u;
+      const lower = Math.floor(t);
+      const upper = Math.min(lower + 1, radiusLength - 1);
+      const frac = t - lower;
+      const posRadius = radius[lower] * (1 - frac) + radius[upper] * frac;
+      
+      const tangent = frames.tangents[i];
+      const normal = frames.normals[i];
+      const binormal = frames.binormals[i];
+
+      for (let j = 0; j < radialSegments; j++) {
+        const v = j / radialSegments * 2 * Math.PI;
+        // Negate so it faces outward
+        const cx = -posRadius * Math.cos(v);
+        const cy = posRadius * Math.sin(v);
+
+        // Calculate circle point position
+        const pos2 = pos.clone();
+        pos2.x += cx * normal.x + cy * binormal.x;
+        pos2.y += cx * normal.y + cy * binormal.y;
+        pos2.z += cx * normal.z + cy * binormal.z;
+
+        // Visualize: draw a small sphere at pos2
+        this.addSphere(pos2, 0.02);
+      }
+    }
   }
 
   addSphere(position, radius = 0.9) {
