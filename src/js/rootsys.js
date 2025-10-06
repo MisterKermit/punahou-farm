@@ -44,7 +44,6 @@ export default class AnimatedRootSystem {
     this.startingBranches = startingBranches;
     // root node at origin
     this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
-    this.addSphere(this.root.point, 0.6);
 
     // growth queue (holds [node, depth, branchLength])
     this.growthQueue = [[this.root, 0, this.baseBranchLength]];
@@ -139,7 +138,7 @@ export default class AnimatedRootSystem {
 
       currentPos.copy(endPosVector);
 
-      this.addSphere(endPosVector, 0.1);
+      // this.addSphere(endPosVector, 0.1);
     }
   }
 
@@ -148,64 +147,90 @@ export default class AnimatedRootSystem {
         const curve = new THREE.CatmullRomCurve3(branch.rootPoints, false, 'catmullrom', 1);
         const points = curve.getPoints(branch.rootPoints.length * 5);
 
-        const tubeGeom = new THREE.TubeGeometry(curve, 64, 0.05, 8, false);
-        const tubeMat = new THREE.MeshDepthMaterial({
+        const tubeMat = new THREE.MeshStandardMaterial({
           color: 0xffffff,
           roughness: 0.6, 
           metalness: 0
         });
 
-        const curveObject = new THREE.Mesh(tubeGeom, tubeMat);
-        this.scene.add(curveObject);
-
-        this.genRootMesh(points, curve, branch.branchRadii);
+        this.genRootMesh(points, curve, branch.branchRadii, tubeMat);
     }
   }
 
-  genRootMesh(curvePoints, curve, radius) {
+  genRootMesh(curvePoints, curve, radius, tubeMat) {
     const radialSegments = 20;
     const numpoints = curvePoints.length;
-
     const radiusLength = radius.length;
-
-    // Create a CatmullRomCurve3 from the points
-    // const curve = new THREE.CatmullRomCurve3(curvePoints, false, 'catmullrom', 1);
 
     // Get Frenet frames for the curve
     const frames = curve.computeFrenetFrames(numpoints, false);
 
-    // For visualization: draw small spheres at each circle point
+    // 1. Generate circle vertices for each curve point
+    const circleVertices = [];
     for (let i = 0; i < numpoints; i++) {
       const u = i / (numpoints - 1);
-      const pos = curve.getPointAt(u);
-
-      // Example: radius can be constant or vary along the curve
       const t = (radiusLength - 1) * u;
       const lower = Math.floor(t);
       const upper = Math.min(lower + 1, radiusLength - 1);
       const frac = t - lower;
       const posRadius = radius[lower] * (1 - frac) + radius[upper] * frac;
-      
-      const tangent = frames.tangents[i];
+
+      const pos = curve.getPointAt(u);
       const normal = frames.normals[i];
       const binormal = frames.binormals[i];
 
+      const circle = [];
       for (let j = 0; j < radialSegments; j++) {
         const v = j / radialSegments * 2 * Math.PI;
-        // Negate so it faces outward
         const cx = -posRadius * Math.cos(v);
         const cy = posRadius * Math.sin(v);
 
-        // Calculate circle point position
-        const pos2 = pos.clone();
-        pos2.x += cx * normal.x + cy * binormal.x;
-        pos2.y += cx * normal.y + cy * binormal.y;
-        pos2.z += cx * normal.z + cy * binormal.z;
+        const vertex = pos.clone();
+        vertex.x += cx * normal.x + cy * binormal.x;
+        vertex.y += cx * normal.y + cy * binormal.y;
+        vertex.z += cx * normal.z + cy * binormal.z;
 
-        // Visualize: draw a small sphere at pos2
-        this.addSphere(pos2, 0.02);
+        circle.push(vertex);
+        // Optionally visualize: this.addSphere(vertex, 0.02);
+      }
+      circleVertices.push(circle);
+    }
+
+    // 2. Flatten vertices for BufferGeometry
+    const vertices = [];
+    for (let i = 0; i < numpoints; i++) {
+      for (let j = 0; j < radialSegments; j++) {
+        const v = circleVertices[i][j];
+        vertices.push(v.x, v.y, v.z);
       }
     }
+
+    // 3. Build faces (indices)
+    const indices = [];
+    for (let i = 0; i < numpoints - 1; i++) {
+      for (let j = 0; j < radialSegments; j++) {
+        const a = i * radialSegments + j;
+        const b = i * radialSegments + ((j + 1) % radialSegments);
+        const c = (i + 1) * radialSegments + ((j + 1) % radialSegments);
+        const d = (i + 1) * radialSegments + j;
+
+        // Two triangles per quad
+        indices.push(a, b, d);
+        indices.push(b, c, d);
+      }
+    }
+
+    // 4. Create BufferGeometry
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+
+    // 5. Create mesh
+    
+    const mesh = new THREE.Mesh(geometry, tubeMat);
+
+    this.scene.add(mesh);
   }
 
   addSphere(position, radius = 0.9) {
