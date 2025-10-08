@@ -1,147 +1,223 @@
 import * as THREE from 'three';
-import { VerticalTiltShiftShader } from 'three/examples/jsm/Addons.js';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+
+class RootSegment {
+  constructor(start, end, rootPoints, branchRadii) {
+    this.start = start;
+    this.end = end;
+    this.rootPoints = rootPoints; // array of THREE.Vector3
+    this.branchRadii = branchRadii;
+  }
+}
 
 class KDNode {
-  constructor(point) {
+  constructor(point, radius, depth) {
     this.point = point;
-    this.children = [];
+    this.radius = radius;
+    this.depth = depth;
   }
 }
 
 export default class AnimatedRootSystem {
-  constructor(scene, options = {}) {
-    const {
-      depth,
-      baseBranchLength,
-      spread,
-      maxChildren,
-      branchDecay,
-      branchChance,
-      growthSpeed
-    } = options;
-
+  constructor(
+    scene,
+    {
+      maxDepth = 6,
+      baseBranchLength = 5,
+      spread = 0.01,
+      maxChildren = 20,
+      branchDecay = 0.4,
+      branchChance = 0.75,
+      growthSpeed = 0, // ms between new branches
+      startingBranches = 15,
+      startRadius = 0.3
+    } = {}
+  ) {
     this.scene = scene;
 
     // parameters
-    this.depth = depth;
+    this.maxDepth = maxDepth;
     this.baseBranchLength = baseBranchLength;
+    this.startRadius = startRadius;
     this.spread = spread;
     this.maxChildren = maxChildren;
     this.branchDecay = branchDecay;
     this.branchChance = branchChance;
     this.growthSpeed = growthSpeed;
+    this.startingBranches = startingBranches;
 
     // root node at origin
-    this.root = new KDNode(new THREE.Vector3(0, 0, 0));
-    this.addSphere(this.root.point, 0.3);
+    this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
+    this.addSphere(this.root.point, 0.4);
 
     // growth queue (holds [node, depth, branchLength])
-    this.growthQueue = [[this.root, depth, baseBranchLength]];
+    this.growthQueue = [[this.root, 0, this.baseBranchLength]];
+
+    for (let index = 0; index < this.startingBranches; index++) {
+      this.growthQueue.push([
+        this.root,
+        this.root.depth,
+        this.baseBranchLength
+      ]);
+    }
 
     // start animation
     this.lastGrowthTime = 0;
   }
 
-  update(deltaTime, elapsedTime) {
+  update(deltaTime) {
     this.lastGrowthTime += deltaTime;
-    // Debug: log growth queue length and lastGrowthTime
-    console.log(
-      'update: growthQueue.length =',
-      this.growthQueue.length,
-      'lastGrowthTime =',
-      this.lastGrowthTime
-    );
 
-    // add one branch per tick (controlled by growthSpeed)
-    if (this.lastGrowthTime > this.growthSpeed && this.growthQueue.length > 0) {
+    if (this.growthQueue.length > 0) {
       this.lastGrowthTime = 0;
       const [node, depth, branchLength] = this.growthQueue.shift();
-      console.log('Growing node at depth', depth, 'branchLength', branchLength);
-      this.growNode(node, depth, branchLength);
+
+      if (depth < this.maxDepth) {
+        this.growNode(node, depth, branchLength);
+      }
     }
   }
 
   growNode(node, depth, branchLength) {
-    if (depth <= 0) return;
-    if (Math.random() > this.branchChance) return;
+    if (depth < 0) return;
 
-    branchLength = Math.random() * this.baseBranchLength;
-    const numberChildren = Math.floor(Math.random() * this.maxChildren);
+    const childPoints = [];
+    const radii = [];
+    const homePoint = node.point.clone();
 
-    console.log(
-      'growNode: Creating',
-      numberChildren,
-      'children at depth',
-      depth
+    childPoints.push(homePoint);
+    radii.push(node.radius);
+
+    const currentPos = node.point.clone();
+
+    for (
+      let currentDepth = depth + 1;
+      currentDepth <= depth + this.maxDepth;
+      currentDepth++
+    ) {
+      const randomLength = branchLength * (0.7 + Math.random() * 0.6);
+
+      const dx = (Math.random() * 2 - 1) * this.spread * 0.2;
+      const dy = -Math.abs(Math.random() * this.spread);
+      const dz = (Math.random() * 2 - 1) * this.spread * 0.2;
+
+      const dirVector = new THREE.Vector3(dx, dy, dz).normalize();
+
+      const endPosVector = currentPos
+        .clone()
+        .add(dirVector.multiplyScalar(randomLength));
+      const radius = this.startRadius * (1 / currentDepth);
+
+      const endPoint = new KDNode(endPosVector, radius, currentDepth);
+      childPoints.push(endPosVector);
+      radii.push(radius);
+
+      if (currentDepth === depth + this.maxDepth) {
+        const branch = new RootSegment(homePoint, endPoint, childPoints, radii);
+        this.drawSpline(branch);
+        this.growthQueue.push([
+          endPoint,
+          currentDepth,
+          homePoint.distanceTo(endPosVector)
+        ]);
+      }
+
+      currentPos.copy(endPosVector);
+    }
+  }
+
+  drawSpline(branch) {
+    if (branch.rootPoints.length > 0) {
+      const curve = new THREE.CatmullRomCurve3(
+        branch.rootPoints,
+        false,
+        'catmullrom',
+        1
+      );
+      const points = curve.getPoints(branch.rootPoints.length * 5);
+
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: 0xE3_E1_D2,
+        emissive: 0xCE_86_54,
+        emissiveIntensity: 0.4,
+        roughness: 0.4,
+        metalness: 0.05,
+        side: THREE.DoubleSide
+      });
+
+      this.genRootMesh(points, curve, branch.branchRadii, tubeMat);
+    }
+  }
+
+  genRootMesh(curvePoints, curve, radius, tubeMat) {
+    const radialSegments = 20;
+    const numpoints = curvePoints.length;
+    const radiusLength = radius.length;
+
+    const frames = curve.computeFrenetFrames(numpoints, false);
+
+    const circleVertices = [];
+    for (let index = 0; index < numpoints; index++) {
+      const u = index / (numpoints - 1);
+      const t = (radiusLength - 1) * u;
+      const lower = Math.floor(t);
+      const upper = Math.min(lower + 1, radiusLength - 1);
+      const frac = t - lower;
+      const posRadius = radius[lower] * (1 - frac) + radius[upper] * frac;
+
+      const pos = curve.getPointAt(u);
+      const normal = frames.normals[index];
+      const binormal = frames.binormals[index];
+
+      const circle = [];
+      for (let index = 0; index < radialSegments; index++) {
+        const v = (index / radialSegments) * 2 * Math.PI;
+        const cx = -posRadius * Math.cos(v);
+        const cy = posRadius * Math.sin(v);
+
+        const vertex = pos.clone();
+        vertex.x += cx * normal.x + cy * binormal.x;
+        vertex.y += cx * normal.y + cy * binormal.y;
+        vertex.z += cx * normal.z + cy * binormal.z;
+
+        circle.push(vertex);
+      }
+      circleVertices.push(circle);
+    }
+
+    const vertices = [];
+    for (let index = 0; index < numpoints; index++) {
+      for (let index_ = 0; index_ < radialSegments; index_++) {
+        const v = circleVertices[index][index_];
+        vertices.push(v.x, v.y, v.z);
+      }
+    }
+
+    const indices = [];
+    for (let index = 0; index < numpoints - 1; index++) {
+      for (let index_ = 0; index_ < radialSegments; index_++) {
+        const a = index * radialSegments + index_;
+        const b = index * radialSegments + ((index_ + 1) % radialSegments);
+        const c =
+          (index + 1) * radialSegments + ((index_ + 1) % radialSegments);
+        const d = (index + 1) * radialSegments + index_;
+
+        indices.push(a, b, d, b, c, d);
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(vertices, 3)
     );
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
 
-    for (let index = 0; index < this.maxChildren; index++) {
-      const branch = [];
-      let positionPointer = node.point.clone();
-      for (let index = 0; index < depth; index++) {
-        // branchLength *= Math.random() + 0.5; // slight random variation
-        const dx = (Math.random() - 0.5) * this.spread;
-        const dz = (Math.random() - 0.5) * this.spread;
-        const dy = -branchLength * (0.2 + Math.random() * 0.4);
-
-        const childPoint = new THREE.Vector3(
-          positionPointer.x + dx,
-          positionPointer.y + dy,
-          positionPointer.z + dz
-        );
-
-        positionPointer = childPoint.clone();
-
-        const child = new KDNode(childPoint);
-
-        branch.push(child);
-
-        // draw visuals
-        this.addSphere(childPoint, 0.1 * (depth / this.depth) + 0.05);
-
-        // push to growth queue for later expansion
-        // this.growthQueue.push([child, depth - 1, branchLength * this.branchDecay]);
-        console.log(
-          'growNode: Added child to growthQueue, new length =',
-          this.growthQueue.length
-        );
-      }
-      node.children.push(branch);
-
-      this.drawSpline(node.point, node.children);
-    }
+    const mesh = new THREE.Mesh(geometry, tubeMat);
+    this.scene.add(mesh);
   }
 
-  drawSpline(nodePoint, childPoints) {
-    // Build array of THREE.Vector3: parent + all children
-    for (const childPoint of childPoints) {
-      const pointlocations = [nodePoint];
-
-      for (const kdNode of childPoint) {
-        if (kdNode && kdNode.point) {
-          pointlocations.push(kdNode.point);
-        }
-      }
-
-      if (pointlocations.length > 1) {
-        const curve = new THREE.CatmullRomCurve3(
-          pointlocations,
-          false,
-          'catmullrom',
-          0.3
-        );
-        const points = curve.getPoints(50);
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ color: 0xFF_00_00 });
-        const curveObject = new THREE.Line(geometry, material);
-        // this.scene.add(curveObject);
-        this.addRootCapsule(curve);
-      }
-    }
-  }
-
-  addSphere(position, radius = 0.3) {
+  addSphere(position, radius = 0.9) {
     const geometry = new THREE.SphereGeometry(radius, 12, 12);
     const material = new THREE.MeshStandardMaterial({
       color: 0x65_43_21,
@@ -151,107 +227,5 @@ export default class AnimatedRootSystem {
     const sphere = new THREE.Mesh(geometry, material);
     sphere.position.copy(position);
     this.scene.add(sphere);
-  }
-
-  addRootCapsule(curve) {
-    let texSize = 512;
-    let points = curve.getSpacedPoints(texSize - 1);
-    let frames = curve.computeFrenetFrames(texSize - 1);
-
-    let data = [];
-    for (const p of points) data.push(p.x, p.y, p.z, 0);
-    for (const t of frames.tangents) data.push(t.x, t.y, t.z, 0);
-
-    let dataTex = new THREE.DataTexture(
-      new Float32Array(data),
-      texSize,
-      2,
-      THREE.RGBAFormat,
-      THREE.FloatType
-    );
-    dataTex.needsUpdate = true;
-
-    // === Capsule geometry ===
-    let r = 0.1,
-      rsegs = 12,
-      csegs = 100;
-    let capsuleGeo = mergeGeometries([
-      new THREE.SphereGeometry(
-        r,
-        rsegs,
-        Math.floor(rsegs * 0.5),
-        0,
-        Math.PI * 2,
-        0,
-        Math.PI * 0.5
-      ).translate(0, 0.5, 0),
-      new THREE.CylinderGeometry(r, r, 1, rsegs, csegs, true),
-      new THREE.SphereGeometry(
-        r,
-        rsegs,
-        Math.floor(rsegs * 0.5),
-        0,
-        Math.PI * 2,
-        Math.PI * 0.5,
-        Math.PI * 0.5
-      ).translate(0, -0.5, 0)
-    ]).rotateX(-Math.PI * 0.5);
-
-    // === Material with custom vertex shader to bend along curve ===
-    let uniforms = {
-      curveTex: { value: dataTex },
-      stretchRatio: { value: 1 }
-    };
-
-    let mat = new THREE.MeshLambertMaterial({
-      color: 0x88_CC_FF,
-      onBeforeCompile: (shader) => {
-        shader.uniforms.curveTex = uniforms.curveTex;
-        shader.uniforms.stretchRatio = uniforms.stretchRatio;
-
-        shader.vertexShader =
-          `
-          uniform sampler2D curveTex;
-          uniform float stretchRatio;
-
-          mat3 calcLookAtMatrix(vec3 origin, vec3 target, float roll) {
-            vec3 rr = vec3(sin(roll), cos(roll), 0.0);
-            vec3 ww = normalize(target - origin);
-            vec3 uu = normalize(cross(ww, rr));
-            vec3 vv = normalize(cross(uu, ww));
-            return -mat3(uu, vv, ww);
-          }
-        ` + shader.vertexShader;
-
-        shader.vertexShader = shader.vertexShader.replace(
-          '#include <beginnormal_vertex>',
-          `#include <beginnormal_vertex>
-
-            vec3 pos = position;
-            float u = clamp(pos.z + 0.5, 0., 1.) * stretchRatio;
-
-            vec3 cpos = vec3(texture(curveTex, vec2(u, 0.25)));
-            vec3 ctan = vec3(texture(curveTex, vec2(u, 0.75)));
-
-            mat3 rot = calcLookAtMatrix(vec3(0), -ctan, 0.0);
-
-            objectNormal = normalize(rot * objectNormal);
-          `
-        );
-
-        shader.vertexShader = shader.vertexShader.replace(
-          '#include <begin_vertex>',
-          `#include <begin_vertex>
-            transformed = rot * pos;
-            transformed += cpos;
-          `
-        );
-      }
-    });
-
-    // === Capsule mesh ===
-    let capsule = new THREE.Mesh(capsuleGeo, mat);
-    capsule.frustumCulled = false;
-    this.scene.add(capsule);
   }
 }

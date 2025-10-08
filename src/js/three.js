@@ -3,14 +3,12 @@ import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-import fragment from '../shaders/fragment.glsl';
-import vertex from '../shaders/vertex.glsl';
 import AnimatedRootSystem from './rootsys.js';
 
 const device = {
-  width: globalThis.innerWidth,
-  height: globalThis.innerHeight,
-  pixelRatio: globalThis.devicePixelRatio
+  width: window.innerWidth,
+  height: window.innerHeight,
+  pixelRatio: window.devicePixelRatio
 };
 
 export default class Three {
@@ -25,6 +23,7 @@ export default class Three {
       0.1,
       100
     );
+
     this.camera.position.set(0, 0, 10);
     this.scene.add(this.camera);
 
@@ -41,16 +40,6 @@ export default class Three {
 
     this.clock = new T.Clock();
 
-    this.options = {
-      depth: 6,
-      baseBranchLength: 5,
-      spread: 2,
-      maxChildren: 20,
-      branchDecay: 0.8,
-      branchChance: 0.75,
-      growthSpeed: 0 // ms between new branches
-    };
-
     this.setLights();
     // this.setModel();
     this.createRootSys();
@@ -59,17 +48,14 @@ export default class Three {
   }
 
   setLights() {
-    this.directionLight = new T.DirectionalLight(new T.Color(1, 1, 1, 1));
+    this.directionLight = new T.DirectionalLight(new T.Color(1, 1, 1, 1), 2);
+    this.ambientLight = new T.AmbientLight(0xFF_FF_FF, 1);
     this.scene.add(this.directionLight);
+    this.scene.add(this.ambientLight);
   }
 
   createRootSys() {
-    document.querySelector('#debug-menu-content').textContent = JSON.stringify(
-      this.options,
-      undefined,
-      2
-    );
-    this.RootSystem = new AnimatedRootSystem(this.scene, this.options);
+    this.RootSystem = new AnimatedRootSystem(this.scene);
   }
 
   setModel() {
@@ -87,18 +73,12 @@ export default class Three {
   }
 
   render() {
-    const elapsedTime = this.clock.getElapsedTime();
+    // const _elapsedTime = this.clock.getElapsedTime();
     const deltaTime = this.clock.getDelta() * 10_000; // convert to ms
-
-    // Uncomment if you want to rotate something
-    // if (this.planeMesh) {
-    //   this.planeMesh.rotation.x = 0.2 * elapsedTime;
-    //   this.planeMesh.rotation.y = 0.1 * elapsedTime;
-    // }
 
     // Update root system animation
     if (this.RootSystem) {
-      this.RootSystem.update(deltaTime, elapsedTime);
+      this.RootSystem.update(deltaTime);
     }
 
     this.renderer.render(this.scene, this.camera);
@@ -106,12 +86,12 @@ export default class Three {
   }
 
   setResize() {
-    globalThis.addEventListener('resize', this.onResize.bind(this));
+    window.addEventListener('resize', this.onResize.bind(this));
   }
 
   onResize() {
-    device.width = globalThis.innerWidth;
-    device.height = globalThis.innerHeight;
+    device.width = window.innerWidth;
+    device.height = window.innerHeight;
 
     this.camera.aspect = device.width / device.height;
     this.camera.updateProjectionMatrix();
