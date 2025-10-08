@@ -4,7 +4,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-
 import fragment from '../shaders/fragment.glsl';
 import vertex from '../shaders/vertex.glsl';
 
@@ -13,7 +12,7 @@ import AnimatedRootSystem from './rootsys.js';
 const device = {
   width: window.innerWidth,
   height: window.innerHeight,
-  pixelRatio: window.devicePixelRatio 
+  pixelRatio: window.devicePixelRatio
 };
 
 export default class Three {
@@ -28,6 +27,7 @@ export default class Three {
       0.1,
       100
     );
+
     this.camera.position.set(0, 0, 10);
     this.scene.add(this.camera);
 
@@ -44,17 +44,18 @@ export default class Three {
 
     this.clock = new T.Clock();
 
- 
     this.setLights();
-    this.setModel();
+    // this.setModel();
     this.createRootSys();
     this.render();
     this.setResize();
   }
 
   setLights() {
-    this.directionLight = new T.DirectionalLight(new T.Color(1, 1, 1, 1));
+    this.directionLight = new T.DirectionalLight(new T.Color(1, 1, 1, 1), 2);
+    this.ambientLight = new T.AmbientLight(0xffffff, 1);
     this.scene.add(this.directionLight);
+    this.scene.add(this.ambientLight);
   }
 
   createRootSys() {
@@ -66,7 +67,7 @@ export default class Three {
     loader.load(
       'src/assets/models/taro/scene.gltf',
       (gltf) => {
-        // this.scene.add(gltf.scene);
+        this.scene.add(gltf.scene);
       },
       undefined,
       (error) => {
@@ -76,14 +77,8 @@ export default class Three {
   }
 
   render() {
-  const elapsedTime = this.clock.getElapsedTime();
-  const deltaTime = this.clock.getDelta() * 10000; // convert to ms
-
-    // Uncomment if you want to rotate something
-    // if (this.planeMesh) {
-    //   this.planeMesh.rotation.x = 0.2 * elapsedTime;
-    //   this.planeMesh.rotation.y = 0.1 * elapsedTime;
-    // }
+    // const _elapsedTime = this.clock.getElapsedTime();
+    const deltaTime = this.clock.getDelta() * 10000; // convert to ms
 
     // Update root system animation
     if (this.RootSystem) {
@@ -108,5 +103,4 @@ export default class Three {
     this.renderer.setSize(device.width, device.height);
     this.renderer.setPixelRatio(Math.min(device.pixelRatio, 2));
   }
-
 }
