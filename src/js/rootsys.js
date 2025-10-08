@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 class RootSegment {
   constructor(start, end, rootPoints, branchRadii) {
@@ -19,17 +18,20 @@ class KDNode {
 }
 
 export default class AnimatedRootSystem {
-  constructor(scene, {
-    maxDepth = 6,
-    baseBranchLength = 5,
-    spread = 0.01,
-    maxChildren = 20,
-    branchDecay = 0.4,
-    branchChance = 0.75,
-    growthSpeed = 0, // ms between new branches
-    startingBranches = 15,
-    startRadius = 0.3
-  } = {}) {
+  constructor(
+    scene,
+    {
+      maxDepth = 6,
+      baseBranchLength = 5,
+      spread = 0.01,
+      maxChildren = 20,
+      branchDecay = 0.4,
+      branchChance = 0.75,
+      growthSpeed = 0, // ms between new branches
+      startingBranches = 15,
+      startRadius = 0.3
+    } = {}
+  ) {
     this.scene = scene;
 
     // parameters
@@ -50,8 +52,12 @@ export default class AnimatedRootSystem {
     // growth queue (holds [node, depth, branchLength])
     this.growthQueue = [[this.root, 0, this.baseBranchLength]];
 
-    for (let i = 0; i < this.startingBranches; i++) {
-      this.growthQueue.push([this.root, this.root.depth, this.baseBranchLength]);
+    for (let index = 0; index < this.startingBranches; index++) {
+      this.growthQueue.push([
+        this.root,
+        this.root.depth,
+        this.baseBranchLength
+      ]);
     }
 
     // start animation
@@ -83,7 +89,11 @@ export default class AnimatedRootSystem {
 
     const currentPos = node.point.clone();
 
-    for (let currentDepth = depth + 1; currentDepth <= depth + this.maxDepth; currentDepth++) {
+    for (
+      let currentDepth = depth + 1;
+      currentDepth <= depth + this.maxDepth;
+      currentDepth++
+    ) {
       const randomLength = branchLength * (0.7 + Math.random() * 0.6);
 
       const dx = (Math.random() * 2 - 1) * this.spread * 0.2;
@@ -92,7 +102,9 @@ export default class AnimatedRootSystem {
 
       const dirVector = new THREE.Vector3(dx, dy, dz).normalize();
 
-      const endPosVector = currentPos.clone().add(dirVector.multiplyScalar(randomLength));
+      const endPosVector = currentPos
+        .clone()
+        .add(dirVector.multiplyScalar(randomLength));
       const radius = this.startRadius * (1 / currentDepth);
 
       const endPoint = new KDNode(endPosVector, radius, currentDepth);
@@ -102,7 +114,11 @@ export default class AnimatedRootSystem {
       if (currentDepth === depth + this.maxDepth) {
         const branch = new RootSegment(homePoint, endPoint, childPoints, radii);
         this.drawSpline(branch);
-        this.growthQueue.push([endPoint, currentDepth, homePoint.distanceTo(endPosVector)]);
+        this.growthQueue.push([
+          endPoint,
+          currentDepth,
+          homePoint.distanceTo(endPosVector)
+        ]);
       }
 
       currentPos.copy(endPosVector);
@@ -111,12 +127,17 @@ export default class AnimatedRootSystem {
 
   drawSpline(branch) {
     if (branch.rootPoints.length > 0) {
-      const curve = new THREE.CatmullRomCurve3(branch.rootPoints, false, 'catmullrom', 1);
+      const curve = new THREE.CatmullRomCurve3(
+        branch.rootPoints,
+        false,
+        'catmullrom',
+        1
+      );
       const points = curve.getPoints(branch.rootPoints.length * 5);
 
       const tubeMat = new THREE.MeshStandardMaterial({
-        color: 0xe3e1d2,
-        emissive: 0xce8654,
+        color: 0xE3_E1_D2,
+        emissive: 0xCE_86_54,
         emissiveIntensity: 0.4,
         roughness: 0.4,
         metalness: 0.05,
@@ -135,8 +156,8 @@ export default class AnimatedRootSystem {
     const frames = curve.computeFrenetFrames(numpoints, false);
 
     const circleVertices = [];
-    for (let i = 0; i < numpoints; i++) {
-      const u = i / (numpoints - 1);
+    for (let index = 0; index < numpoints; index++) {
+      const u = index / (numpoints - 1);
       const t = (radiusLength - 1) * u;
       const lower = Math.floor(t);
       const upper = Math.min(lower + 1, radiusLength - 1);
@@ -144,12 +165,12 @@ export default class AnimatedRootSystem {
       const posRadius = radius[lower] * (1 - frac) + radius[upper] * frac;
 
       const pos = curve.getPointAt(u);
-      const normal = frames.normals[i];
-      const binormal = frames.binormals[i];
+      const normal = frames.normals[index];
+      const binormal = frames.binormals[index];
 
       const circle = [];
-      for (let j = 0; j < radialSegments; j++) {
-        const v = (j / radialSegments) * 2 * Math.PI;
+      for (let index = 0; index < radialSegments; index++) {
+        const v = (index / radialSegments) * 2 * Math.PI;
         const cx = -posRadius * Math.cos(v);
         const cy = posRadius * Math.sin(v);
 
@@ -164,27 +185,31 @@ export default class AnimatedRootSystem {
     }
 
     const vertices = [];
-    for (let i = 0; i < numpoints; i++) {
-      for (let j = 0; j < radialSegments; j++) {
-        const v = circleVertices[i][j];
+    for (let index = 0; index < numpoints; index++) {
+      for (let index_ = 0; index_ < radialSegments; index_++) {
+        const v = circleVertices[index][index_];
         vertices.push(v.x, v.y, v.z);
       }
     }
 
     const indices = [];
-    for (let i = 0; i < numpoints - 1; i++) {
-      for (let j = 0; j < radialSegments; j++) {
-        const a = i * radialSegments + j;
-        const b = i * radialSegments + ((j + 1) % radialSegments);
-        const c = (i + 1) * radialSegments + ((j + 1) % radialSegments);
-        const d = (i + 1) * radialSegments + j;
+    for (let index = 0; index < numpoints - 1; index++) {
+      for (let index_ = 0; index_ < radialSegments; index_++) {
+        const a = index * radialSegments + index_;
+        const b = index * radialSegments + ((index_ + 1) % radialSegments);
+        const c =
+          (index + 1) * radialSegments + ((index_ + 1) % radialSegments);
+        const d = (index + 1) * radialSegments + index_;
 
         indices.push(a, b, d, b, c, d);
       }
     }
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(vertices, 3)
+    );
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
@@ -195,7 +220,7 @@ export default class AnimatedRootSystem {
   addSphere(position, radius = 0.9) {
     const geometry = new THREE.SphereGeometry(radius, 12, 12);
     const material = new THREE.MeshStandardMaterial({
-      color: 0x654321,
+      color: 0x65_43_21,
       roughness: 0.8,
       metalness: 0.2
     });

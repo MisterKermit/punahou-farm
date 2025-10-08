@@ -1,11 +1,7 @@
 import * as T from 'three';
 // eslint-disable-next-line import/no-unresolved
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
-import fragment from '../shaders/fragment.glsl';
-import vertex from '../shaders/vertex.glsl';
 
 import AnimatedRootSystem from './rootsys.js';
 
@@ -53,7 +49,7 @@ export default class Three {
 
   setLights() {
     this.directionLight = new T.DirectionalLight(new T.Color(1, 1, 1, 1), 2);
-    this.ambientLight = new T.AmbientLight(0xffffff, 1);
+    this.ambientLight = new T.AmbientLight(0xFF_FF_FF, 1);
     this.scene.add(this.directionLight);
     this.scene.add(this.ambientLight);
   }
@@ -78,7 +74,7 @@ export default class Three {
 
   render() {
     // const _elapsedTime = this.clock.getElapsedTime();
-    const deltaTime = this.clock.getDelta() * 10000; // convert to ms
+    const deltaTime = this.clock.getDelta() * 10_000; // convert to ms
 
     // Update root system animation
     if (this.RootSystem) {
