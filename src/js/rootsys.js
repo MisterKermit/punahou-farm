@@ -38,9 +38,9 @@ export default class AnimatedRootSystem {
       maxDepth = 3,
       baseBranchLength = 3,
       spread = 0.01,
-      maxChildren = 20,
+      maxChildren = 1,
       // growthSpeed = 0, // ms between new branches
-      startingBranches = 200,
+      startingBranches = 400,
       startRadius = 0.15,
       decayMethod = DecayMethods.SIGMOID
     } = {}
@@ -56,19 +56,19 @@ export default class AnimatedRootSystem {
     // this.growthSpeed = growthSpeed;
     this.startingBranches = startingBranches;
     this.decayMethod = decayMethod || DEFAULT_DECAY_METHOD;
+
+    this.growthQueue = [];
+
     // root node at origin
     this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
     this.addSphere(this.root.point, 1.5);
 
-    // growth queue (holds [node, depth, branchLength])
-    this.growthQueue = [[this.root, 0, this.baseBranchLength]];
-
     for (let index = 0; index < this.startingBranches; index++) {
-      this.growthQueue.push([
-        this.root,
-        this.root.depth,
-        this.baseBranchLength
-      ]);
+      this.growthQueue.push({
+        node: this.root,
+        depth: this.root.depth,
+        branchLength: this.baseBranchLength
+      });
     }
 
     // start animation
@@ -82,8 +82,12 @@ export default class AnimatedRootSystem {
       this.lastGrowthTime = 0;
 
       const branchesPerFrame = 5;
-      for (let i = 0; i < branchesPerFrame && this.growthQueue.length > 0; i++) {
-        const [node, depth, branchLength] = this.growthQueue.shift();
+      for (
+        let i = 0;
+        i < branchesPerFrame && this.growthQueue.length > 0;
+        i++
+      ) {
+        const { node, depth, branchLength } = this.growthQueue.shift();
         if (depth < this.maxDepth) {
           this.growNode(node, depth, branchLength);
         }
@@ -128,11 +132,11 @@ export default class AnimatedRootSystem {
       if (currentDepth === depth + this.maxDepth) {
         const branch = new RootSegment(homePoint, endPoint, childPoints, radii);
         this.drawSpline(branch);
-        this.growthQueue.push([
-          endPoint,
-          currentDepth,
-          homePoint.distanceTo(endPosVector)
-        ]);
+        this.growthQueue.push({
+          node: endPoint,
+          depth: currentDepth,
+          branchLength: homePoint.distanceTo(endPosVector)
+        });
       }
 
       currentPos.copy(endPosVector);
@@ -150,8 +154,8 @@ export default class AnimatedRootSystem {
       const points = curve.getPoints(branch.rootPoints.length * 5);
 
       const tubeMat = new THREE.MeshStandardMaterial({
-        color: 0xE3_E1_D2,
-        emissive: 0xCE_86_54,
+        color: 0xe3_e1_d2,
+        emissive: 0xce_86_54,
         emissiveIntensity: 0.4,
         roughness: 0.4,
         metalness: 0.05,

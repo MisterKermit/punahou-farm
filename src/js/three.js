@@ -49,13 +49,26 @@ export default class Three {
 
   setLights() {
     this.directionLight = new T.DirectionalLight(new T.Color(1, 1, 1, 1), 2);
-    this.ambientLight = new T.AmbientLight(0xFF_FF_FF, 1);
+    this.ambientLight = new T.AmbientLight(0xff_ff_ff, 1);
     this.scene.add(this.directionLight);
     this.scene.add(this.ambientLight);
   }
 
   createRootSys() {
     this.RootSystem = new AnimatedRootSystem(this.scene);
+  }
+
+  regenerateRootSys() {
+    // Remove all objects from scene
+    for (
+      let objectIndex = this.scene.children.length - 1;
+      objectIndex >= 0;
+      objectIndex--
+    ) {
+      this.scene.remove(this.scene.children[objectIndex]);
+    }
+
+    this.createRootSys();
   }
 
   setModel() {
@@ -73,7 +86,7 @@ export default class Three {
   }
 
   render() {
-    // const _elapsedTime = this.clock.getElapsedTime();
+    // const elapsedTime = this.clock.getElapsedTime();
     const deltaTime = this.clock.getDelta() * 10_000; // convert to ms
 
     // Update root system animation
