@@ -13,6 +13,101 @@ const ThreeUtils = {
     sphere.position.copy(position);
 
     scene.add(sphere);
+  },
+  drawSpline(scene, branch) {
+    if (branch.rootPoints.length > 0) {
+      const curve = new THREE.CatmullRomCurve3(
+        branch.rootPoints,
+        false,
+        'catmullrom',
+        1
+      );
+      const points = curve.getPoints(branch.rootPoints.length * 5);
+
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: 0xe3_e1_d2,
+        emissive: 0xce_86_54,
+        emissiveIntensity: 0.4,
+        roughness: 0.4,
+        metalness: 0.05,
+        side: THREE.DoubleSide
+      });
+
+      this.genRootMesh(scene, {
+        curvePoints: points,
+        curve,
+        radius: branch.branchRadii,
+        tubeMat
+      });
+    }
+  },
+  genRootMesh(scene, { curvePoints, curve, radius, tubeMat }) {
+    const radialSegments = 20;
+    const numpoints = curvePoints.length;
+    const radiusLength = radius.length;
+
+    const frames = curve.computeFrenetFrames(numpoints, false);
+
+    const circleVertices = [];
+    for (let index = 0; index < numpoints; index++) {
+      const u = index / (numpoints - 1);
+      const t = (radiusLength - 1) * u;
+      const lower = Math.floor(t);
+      const upper = Math.min(lower + 1, radiusLength - 1);
+      const frac = t - lower;
+      const posRadius = radius[lower] * (1 - frac) + radius[upper] * frac;
+
+      const pos = curve.getPointAt(u);
+      const normal = frames.normals[index];
+      const binormal = frames.binormals[index];
+
+      const circle = [];
+      for (let index = 0; index < radialSegments; index++) {
+        const v = (index / radialSegments) * 2 * Math.PI;
+        const cx = -posRadius * Math.cos(v);
+        const cy = posRadius * Math.sin(v);
+
+        const vertex = pos.clone();
+        vertex.x += cx * normal.x + cy * binormal.x;
+        vertex.y += cx * normal.y + cy * binormal.y;
+        vertex.z += cx * normal.z + cy * binormal.z;
+
+        circle.push(vertex);
+      }
+      circleVertices.push(circle);
+    }
+
+    const vertices = [];
+    for (let index = 0; index < numpoints; index++) {
+      for (let index_ = 0; index_ < radialSegments; index_++) {
+        const v = circleVertices[index][index_];
+        vertices.push(v.x, v.y, v.z);
+      }
+    }
+
+    const indices = [];
+    for (let index = 0; index < numpoints - 1; index++) {
+      for (let index_ = 0; index_ < radialSegments; index_++) {
+        const a = index * radialSegments + index_;
+        const b = index * radialSegments + ((index_ + 1) % radialSegments);
+        const c =
+          (index + 1) * radialSegments + ((index_ + 1) % radialSegments);
+        const d = (index + 1) * radialSegments + index_;
+
+        indices.push(a, b, d, b, c, d);
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(vertices, 3)
+    );
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+
+    const mesh = new THREE.Mesh(geometry, tubeMat);
+    scene.add(mesh);
   }
 };
 
@@ -149,7 +244,7 @@ export default class AnimatedRootSystem {
 
       if (currentDepth === node.depth + this.maxDepth) {
         const branch = new RootSegment(homePoint, endPoint, childPoints, radii);
-        this.drawSpline(branch);
+        ThreeUtils.drawSpline(this.scene, branch);
         this.growthQueue.push({
           node: endPoint,
           branchLength: homePoint.distanceTo(endPosVector)
@@ -158,97 +253,5 @@ export default class AnimatedRootSystem {
 
       currentPos.copy(endPosVector);
     }
-  }
-
-  drawSpline(branch) {
-    if (branch.rootPoints.length > 0) {
-      const curve = new THREE.CatmullRomCurve3(
-        branch.rootPoints,
-        false,
-        'catmullrom',
-        1
-      );
-      const points = curve.getPoints(branch.rootPoints.length * 5);
-
-      const tubeMat = new THREE.MeshStandardMaterial({
-        color: 0xe3_e1_d2,
-        emissive: 0xce_86_54,
-        emissiveIntensity: 0.4,
-        roughness: 0.4,
-        metalness: 0.05,
-        side: THREE.DoubleSide
-      });
-
-      this.genRootMesh(points, curve, branch.branchRadii, tubeMat);
-    }
-  }
-
-  genRootMesh(curvePoints, curve, radius, tubeMat) {
-    const radialSegments = 20;
-    const numpoints = curvePoints.length;
-    const radiusLength = radius.length;
-
-    const frames = curve.computeFrenetFrames(numpoints, false);
-
-    const circleVertices = [];
-    for (let index = 0; index < numpoints; index++) {
-      const u = index / (numpoints - 1);
-      const t = (radiusLength - 1) * u;
-      const lower = Math.floor(t);
-      const upper = Math.min(lower + 1, radiusLength - 1);
-      const frac = t - lower;
-      const posRadius = radius[lower] * (1 - frac) + radius[upper] * frac;
-
-      const pos = curve.getPointAt(u);
-      const normal = frames.normals[index];
-      const binormal = frames.binormals[index];
-
-      const circle = [];
-      for (let index = 0; index < radialSegments; index++) {
-        const v = (index / radialSegments) * 2 * Math.PI;
-        const cx = -posRadius * Math.cos(v);
-        const cy = posRadius * Math.sin(v);
-
-        const vertex = pos.clone();
-        vertex.x += cx * normal.x + cy * binormal.x;
-        vertex.y += cx * normal.y + cy * binormal.y;
-        vertex.z += cx * normal.z + cy * binormal.z;
-
-        circle.push(vertex);
-      }
-      circleVertices.push(circle);
-    }
-
-    const vertices = [];
-    for (let index = 0; index < numpoints; index++) {
-      for (let index_ = 0; index_ < radialSegments; index_++) {
-        const v = circleVertices[index][index_];
-        vertices.push(v.x, v.y, v.z);
-      }
-    }
-
-    const indices = [];
-    for (let index = 0; index < numpoints - 1; index++) {
-      for (let index_ = 0; index_ < radialSegments; index_++) {
-        const a = index * radialSegments + index_;
-        const b = index * radialSegments + ((index_ + 1) % radialSegments);
-        const c =
-          (index + 1) * radialSegments + ((index_ + 1) % radialSegments);
-        const d = (index + 1) * radialSegments + index_;
-
-        indices.push(a, b, d, b, c, d);
-      }
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(vertices, 3)
-    );
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-
-    const mesh = new THREE.Mesh(geometry, tubeMat);
-    this.scene.add(mesh);
   }
 }
