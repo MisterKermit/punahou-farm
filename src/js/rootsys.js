@@ -1,5 +1,21 @@
 import * as THREE from 'three';
 
+const ThreeUtils = {
+  addSphere(scene, { position, radius = 0.9 }) {
+    const geometry = new THREE.SphereGeometry(radius, 12, 12);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x65_43_21,
+      roughness: 0.8,
+      metalness: 0.2
+    });
+
+    const sphere = new THREE.Mesh(geometry, material);
+    sphere.position.copy(position);
+
+    scene.add(sphere);
+  }
+};
+
 class RootSegment {
   constructor(start, end, rootPoints, branchRadii) {
     this.start = start;
@@ -40,7 +56,7 @@ export default class AnimatedRootSystem {
       spread = 0.01,
       maxChildren = 1,
       // growthSpeed = 0, // ms between new branches
-      startingBranches = 400,
+      startingBranches = 1,
       startRadius = 0.15,
       decayMethod = DecayMethods.SIGMOID
     } = {}
@@ -61,12 +77,14 @@ export default class AnimatedRootSystem {
 
     // root node at origin
     this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
-    this.addSphere(this.root.point, 1.5);
+    ThreeUtils.addSphere(this.scene, {
+      position: this.root.point,
+      radius: 1.5
+    });
 
     for (let index = 0; index < this.startingBranches; index++) {
       this.growthQueue.push({
         node: this.root,
-        depth: this.root.depth,
         branchLength: this.baseBranchLength
       });
     }
@@ -87,16 +105,16 @@ export default class AnimatedRootSystem {
         i < branchesPerFrame && this.growthQueue.length > 0;
         i++
       ) {
-        const { node, depth, branchLength } = this.growthQueue.shift();
-        if (depth < this.maxDepth) {
-          this.growNode(node, depth, branchLength);
+        const { node, branchLength } = this.growthQueue.shift();
+        if (node.depth < this.maxDepth) {
+          this.growNode(node, branchLength);
         }
       }
     }
   }
 
-  growNode(node, depth, branchLength) {
-    if (depth < 0) return;
+  growNode(node, branchLength) {
+    if (node.depth < 0) return;
 
     const childPoints = [];
     const radii = [];
@@ -108,8 +126,8 @@ export default class AnimatedRootSystem {
     const currentPos = node.point.clone();
 
     for (
-      let currentDepth = depth + 1;
-      currentDepth <= depth + this.maxDepth;
+      let currentDepth = node.depth + 1;
+      currentDepth <= node.depth + this.maxDepth;
       currentDepth++
     ) {
       const randomLength = branchLength * (0.7 + Math.random() * 0.6);
@@ -129,12 +147,11 @@ export default class AnimatedRootSystem {
       childPoints.push(endPosVector);
       radii.push(radius);
 
-      if (currentDepth === depth + this.maxDepth) {
+      if (currentDepth === node.depth + this.maxDepth) {
         const branch = new RootSegment(homePoint, endPoint, childPoints, radii);
         this.drawSpline(branch);
         this.growthQueue.push({
           node: endPoint,
-          depth: currentDepth,
           branchLength: homePoint.distanceTo(endPosVector)
         });
       }
@@ -233,17 +250,5 @@ export default class AnimatedRootSystem {
 
     const mesh = new THREE.Mesh(geometry, tubeMat);
     this.scene.add(mesh);
-  }
-
-  addSphere(position, radius = 0.9) {
-    const geometry = new THREE.SphereGeometry(radius, 12, 12);
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x65_43_21,
-      roughness: 0.8,
-      metalness: 0.2
-    });
-    const sphere = new THREE.Mesh(geometry, material);
-    sphere.position.copy(position);
-    this.scene.add(sphere);
   }
 }
