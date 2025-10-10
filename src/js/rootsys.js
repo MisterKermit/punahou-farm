@@ -17,19 +17,32 @@ class KDNode {
   }
 }
 
+const DecayMethods = {
+  INVERSE: (startRadius, currentDepth) => {
+    return startRadius * (1 / currentDepth);
+  },
+  EXPONENTIAL: (startRadius, currentDepth) => {
+    return startRadius * Math.pow(0.5, currentDepth);
+  },
+  SIGMOID: (startRadius, currentDepth) => {
+    return startRadius * (1 / (1 + Math.exp(currentDepth)));
+  }
+};
+
+const DEFAULT_DECAY_METHOD = DecayMethods.EXPONENTIAL;
+
 export default class AnimatedRootSystem {
   constructor(
     scene,
     {
-      maxDepth = 6,
-      baseBranchLength = 5,
+      maxDepth = 3,
+      baseBranchLength = 3,
       spread = 0.01,
       maxChildren = 20,
-      branchDecay = 0.4,
-      branchChance = 0.75,
-      growthSpeed = 0, // ms between new branches
-      startingBranches = 15,
-      startRadius = 0.3
+      // growthSpeed = 0, // ms between new branches
+      startingBranches = 200,
+      startRadius = 0.15,
+      decayMethod = DecayMethods.SIGMOID
     } = {}
   ) {
     this.scene = scene;
@@ -40,14 +53,12 @@ export default class AnimatedRootSystem {
     this.startRadius = startRadius;
     this.spread = spread;
     this.maxChildren = maxChildren;
-    this.branchDecay = branchDecay;
-    this.branchChance = branchChance;
-    this.growthSpeed = growthSpeed;
+    // this.growthSpeed = growthSpeed;
     this.startingBranches = startingBranches;
-
+    this.decayMethod = decayMethod || DEFAULT_DECAY_METHOD;
     // root node at origin
     this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
-    this.addSphere(this.root.point, 0.4);
+    this.addSphere(this.root.point, 1.5);
 
     // growth queue (holds [node, depth, branchLength])
     this.growthQueue = [[this.root, 0, this.baseBranchLength]];
@@ -69,10 +80,13 @@ export default class AnimatedRootSystem {
 
     if (this.growthQueue.length > 0) {
       this.lastGrowthTime = 0;
-      const [node, depth, branchLength] = this.growthQueue.shift();
 
-      if (depth < this.maxDepth) {
-        this.growNode(node, depth, branchLength);
+      const branchesPerFrame = 5;
+      for (let i = 0; i < branchesPerFrame && this.growthQueue.length > 0; i++) {
+        const [node, depth, branchLength] = this.growthQueue.shift();
+        if (depth < this.maxDepth) {
+          this.growNode(node, depth, branchLength);
+        }
       }
     }
   }
@@ -105,7 +119,7 @@ export default class AnimatedRootSystem {
       const endPosVector = currentPos
         .clone()
         .add(dirVector.multiplyScalar(randomLength));
-      const radius = this.startRadius * (1 / currentDepth);
+      const radius = this.decayMethod(this.startRadius, currentDepth);
 
       const endPoint = new KDNode(endPosVector, radius, currentDepth);
       childPoints.push(endPosVector);
