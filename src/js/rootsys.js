@@ -12,9 +12,9 @@ const ThreeUtils = {
     const sphere = new THREE.Mesh(geometry, material);
     sphere.position.copy(position);
 
-    scene.add(sphere);
+    return scene.add(sphere);
   },
-  drawSpline(scene, branch) {
+  drawSpline(branch) {
     if (branch.rootPoints.length > 0) {
       const curve = new THREE.CatmullRomCurve3(
         branch.rootPoints,
@@ -24,24 +24,14 @@ const ThreeUtils = {
       );
       const points = curve.getPoints(branch.rootPoints.length * 5);
 
-      const tubeMat = new THREE.MeshStandardMaterial({
-        color: 0xe3_e1_d2,
-        emissive: 0xce_86_54,
-        emissiveIntensity: 0.4,
-        roughness: 0.4,
-        metalness: 0.05,
-        side: THREE.DoubleSide
-      });
-
-      this.genRootMesh(scene, {
+      return this.genRootMesh({
         curvePoints: points,
         curve,
-        radius: branch.branchRadii,
-        tubeMat
+        radius: branch.branchRadii
       });
     }
   },
-  genRootMesh(scene, { curvePoints, curve, radius, tubeMat }) {
+  genRootMesh({ curvePoints, curve, radius }) {
     const radialSegments = 20;
     const numpoints = curvePoints.length;
     const radiusLength = radius.length;
@@ -77,46 +67,88 @@ const ThreeUtils = {
       circleVertices.push(circle);
     }
 
-    const vertices = [];
-    for (let index = 0; index < numpoints; index++) {
-      for (let index_ = 0; index_ < radialSegments; index_++) {
-        const v = circleVertices[index][index_];
-        vertices.push(v.x, v.y, v.z);
+    function* verticesGen() {
+      for (let index = 0; index < numpoints; index++) {
+        for (let index_ = 0; index_ < radialSegments; index_++) {
+          const v = circleVertices[index][index_];
+          yield [v.x, v.y, v.z];
+        }
       }
     }
 
-    const indices = [];
-    for (let index = 0; index < numpoints - 1; index++) {
-      for (let index_ = 0; index_ < radialSegments; index_++) {
-        const a = index * radialSegments + index_;
-        const b = index * radialSegments + ((index_ + 1) % radialSegments);
-        const c =
-          (index + 1) * radialSegments + ((index_ + 1) % radialSegments);
-        const d = (index + 1) * radialSegments + index_;
+    function* indicesGen() {
+      for (let index = 0; index < numpoints - 1; index++) {
+        for (let index_ = 0; index_ < radialSegments; index_++) {
+          const a = index * radialSegments + index_;
+          const b = index * radialSegments + ((index_ + 1) % radialSegments);
+          const c =
+            (index + 1) * radialSegments + ((index_ + 1) % radialSegments);
+          const d = (index + 1) * radialSegments + index_;
 
-        indices.push(a, b, d, b, c, d);
+          yield [a, b, d, b, c, d];
+        }
       }
     }
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(vertices, 3)
-    );
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-
-    const mesh = new THREE.Mesh(geometry, tubeMat);
-    scene.add(mesh);
+    return { verticesGen, indicesGen };
   }
 };
 
 class RootSegment {
-  constructor(start, end, rootPoints, branchRadii) {
+  constructor(scene, { start, end, rootPoints, branchRadii }) {
+    this.scene = scene;
     this.start = start;
     this.end = end;
     this.rootPoints = rootPoints; // array of THREE.Vector3
     this.branchRadii = branchRadii;
+
+    this.vertices = [];
+    this.indices = [];
+
+    const { verticesGen, indicesGen } = ThreeUtils.drawSpline(this);
+
+    this.verticeGen = verticesGen();
+    this.indiceGen = indicesGen();
+
+    this.tubeMat = new THREE.MeshStandardMaterial({
+      color: 0xe3_e1_d2,
+      emissive: 0xce_86_54,
+      emissiveIntensity: 0.4,
+      roughness: 0.4,
+      metalness: 0.05,
+      side: THREE.DoubleSide
+    });
+
+    this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.tubeMat);
+    this.scene.add(this.mesh);
+  }
+  update() {
+    if (!this.verticeGen || !this.indiceGen) return;
+
+    // grow faster
+    const growthRate = 20;
+
+    for (let i = 0; i < growthRate; i++) {
+      const v = this.verticeGen.next();
+      if (v.done) break;
+      this.vertices.push(...v.value);
+    }
+
+    const ind = this.indiceGen.next();
+    if (!ind.done) this.indices.push(...ind.value);
+
+    if (this.vertices.length < 6 || this.indices.length < 6) return;
+
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(this.vertices, 3)
+    );
+    geom.setIndex(this.indices);
+    geom.computeVertexNormals();
+
+    if (this.mesh.geometry) this.mesh.geometry.dispose();
+    this.mesh.geometry = geom;
   }
 }
 
@@ -151,7 +183,7 @@ export default class AnimatedRootSystem {
       spread = 0.01,
       maxChildren = 1,
       // growthSpeed = 0, // ms between new branches
-      startingBranches = 1,
+      startingBranches = 100,
       startRadius = 0.15,
       decayMethod = DecayMethods.SIGMOID
     } = {}
@@ -169,6 +201,7 @@ export default class AnimatedRootSystem {
     this.decayMethod = decayMethod || DEFAULT_DECAY_METHOD;
 
     this.growthQueue = [];
+    this.branches = [];
 
     // root node at origin
     this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
@@ -243,8 +276,14 @@ export default class AnimatedRootSystem {
       radii.push(radius);
 
       if (currentDepth === node.depth + this.maxDepth) {
-        const branch = new RootSegment(homePoint, endPoint, childPoints, radii);
-        ThreeUtils.drawSpline(this.scene, branch);
+        const branch = new RootSegment(this.scene, {
+          start: homePoint,
+          end: endPoint,
+          rootPoints: childPoints,
+          branchRadii: radii
+        });
+        this.branches.push(branch);
+
         this.growthQueue.push({
           node: endPoint,
           branchLength: homePoint.distanceTo(endPosVector)

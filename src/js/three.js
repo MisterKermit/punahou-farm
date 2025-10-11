@@ -92,6 +92,9 @@ export default class Three {
     // Update root system animation
     if (this.RootSystem) {
       this.RootSystem.update(deltaTime);
+      for (const branch of this.RootSystem.branches) {
+        branch.update();
+      }
     }
 
     this.renderer.render(this.scene, this.camera);
