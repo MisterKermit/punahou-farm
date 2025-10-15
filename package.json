@@ -12,7 +12,6 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "postinstall": "husky & playwright install",
     "clean:dist": "npx rimraf dist",
     "clean:report": "npx rimraf playwright-report",
     "test:chrome": "npx playwright test --headed --project=chromium",
@@ -22,8 +21,7 @@
     "lint:fix": "npx eslint --ext js ./src --fix",
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview",
-    "prepare": "husky"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@vitejs/plugin-legacy": "^6.0.2",
