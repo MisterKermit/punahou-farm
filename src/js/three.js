@@ -93,7 +93,7 @@ export default class Three {
     if (this.RootSystem) {
       this.RootSystem.update(deltaTime);
       for (const branch of this.RootSystem.branches) {
-        branch.update();
+        branch.update(deltaTime);
       }
     }
 

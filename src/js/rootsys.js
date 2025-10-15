@@ -95,12 +95,15 @@ const ThreeUtils = {
 };
 
 class RootSegment {
-  constructor(scene, { start, end, rootPoints, branchRadii }) {
+  constructor(scene, { start, end, rootPoints, branchRadii, growthSpeed }) {
     this.scene = scene;
     this.start = start;
     this.end = end;
     this.rootPoints = rootPoints; // array of THREE.Vector3
     this.branchRadii = branchRadii;
+    this.growthSpeed = growthSpeed;
+
+    this.timer = 0;
 
     this.vertices = [];
     this.indices = [];
@@ -122,11 +125,14 @@ class RootSegment {
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.tubeMat);
     this.scene.add(this.mesh);
   }
-  update() {
+  update(deltaTime) {
+    this.timer += deltaTime;
+    if (this.timer < this.growthSpeed) return;
+    this.timer = 0;
+
     if (!this.verticeGen || !this.indiceGen) return;
 
-    // grow faster
-    const growthRate = 20;
+    const growthRate = 10;
 
     for (let i = 0; i < growthRate; i++) {
       const v = this.verticeGen.next();
@@ -137,7 +143,7 @@ class RootSegment {
     const ind = this.indiceGen.next();
     if (!ind.done) this.indices.push(...ind.value);
 
-    if (this.vertices.length < 6 || this.indices.length < 6) return;
+    // if (this.vertices.length < 6 || this.indices.length < 6) return;
 
     const geom = new THREE.BufferGeometry();
     geom.setAttribute(
@@ -182,7 +188,8 @@ export default class AnimatedRootSystem {
       baseBranchLength = 3,
       spread = 0.01,
       maxChildren = 1,
-      // growthSpeed = 0, // ms between new branches
+      growthSpeed = 50, // ms between segment pieces
+      newBranchRate = 3000, // ms between new branches
       startingBranches = 100,
       startRadius = 0.15,
       decayMethod = DecayMethods.SIGMOID
@@ -196,7 +203,8 @@ export default class AnimatedRootSystem {
     this.startRadius = startRadius;
     this.spread = spread;
     this.maxChildren = maxChildren;
-    // this.growthSpeed = growthSpeed;
+    this.growthSpeed = growthSpeed;
+    this.newBranchRate = newBranchRate;
     this.startingBranches = startingBranches;
     this.decayMethod = decayMethod || DEFAULT_DECAY_METHOD;
 
@@ -223,16 +231,16 @@ export default class AnimatedRootSystem {
 
   update(deltaTime) {
     this.lastGrowthTime += deltaTime;
+    if (this.lastGrowthTime < this.newBranchRate) return;
 
     if (this.growthQueue.length > 0) {
       this.lastGrowthTime = 0;
 
-      const branchesPerFrame = 5;
-      for (
-        let i = 0;
-        i < branchesPerFrame && this.growthQueue.length > 0;
-        i++
-      ) {
+      // Do batching if growtime allows to put less strain on the cpu from wait time
+      const branchesPerFrame = 1;
+      for (let i = 0; i < branchesPerFrame; i++) {
+        if (this.growthQueue.length <= 0) return;
+
         const { node, branchLength } = this.growthQueue.shift();
         if (node.depth < this.maxDepth) {
           this.growNode(node, branchLength);
@@ -280,7 +288,8 @@ export default class AnimatedRootSystem {
           start: homePoint,
           end: endPoint,
           rootPoints: childPoints,
-          branchRadii: radii
+          branchRadii: radii,
+          growthSpeed: this.growthSpeed
         });
         this.branches.push(branch);
 
