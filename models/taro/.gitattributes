@@ -1,0 +1,4 @@
+scene.gltf filter=lfs diff=lfs merge=lfs -text
+scene.bin filter=lfs diff=lfs merge=lfs -text
+textures/None_baseColor.png filter=lfs diff=lfs merge=lfs -text
+textures/None_normal.png filter=lfs diff=lfs merge=lfs -text
