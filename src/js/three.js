@@ -27,6 +27,7 @@ export default class Three {
     this.camera.position.set(0, 0, 10);
     this.scene.add(this.camera);
 
+    this.loader = new GLTFLoader();
     this.renderer = new T.WebGLRenderer({
       canvas: this.canvas,
       alpha: true,
@@ -41,7 +42,8 @@ export default class Three {
     this.clock = new T.Clock();
 
     this.setLights();
-    // this.setModel();
+    // this.setModel('/src/models/taro/scene.gltf');
+    this.setModel('punahou-farm/models/corm.glb');
     this.createRootSys();
     this.render();
     this.setResize();
@@ -71,14 +73,15 @@ export default class Three {
     this.createRootSys();
   }
 
-  setModel() {
-    const loader = new GLTFLoader();
-    loader.load(
-      'src/assets/models/taro/scene.gltf',
+  setModel(path) {
+    this.loader.load(
+      path,
       (gltf) => {
         this.scene.add(gltf.scene);
       },
-      undefined,
+      (xhr) => {
+        console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
+      },
       (error) => {
         console.error('Error loading GLTF model:', error);
       }

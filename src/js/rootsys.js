@@ -213,10 +213,6 @@ export default class AnimatedRootSystem {
 
     // root node at origin
     this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
-    ThreeUtils.addSphere(this.scene, {
-      position: this.root.point,
-      radius: 1.5
-    });
 
     for (let index = 0; index < this.startingBranches; index++) {
       this.growthQueue.push({
