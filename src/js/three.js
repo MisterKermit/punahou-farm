@@ -5,6 +5,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 import AnimatedRootSystem from './rootsys.js';
 
+import AnimatedLeafSystem from './leafsys.js';
+
 const device = {
   width: window.innerWidth,
   height: window.innerHeight,
@@ -45,6 +47,7 @@ export default class Three {
     // this.setModel('/src/models/taro/scene.gltf');
     this.setModel('punahou-farm/models/corm.glb');
     this.createRootSys();
+    this.createLeafSys();
     this.render();
     this.setResize();
   }
@@ -60,18 +63,11 @@ export default class Three {
     this.RootSystem = new AnimatedRootSystem(this.scene);
   }
 
-  regenerateRootSys() {
-    // Remove all objects from scene
-    for (
-      let objectIndex = this.scene.children.length - 1;
-      objectIndex >= 0;
-      objectIndex--
-    ) {
-      this.scene.remove(this.scene.children[objectIndex]);
-    }
-
-    this.createRootSys();
+  createLeafSys() {
+    this.LeafSystem = new AnimatedLeafSystem(this.scene);
   }
+
+  // regenerateSim() {}
 
   setModel(path) {
     this.loader.load(
@@ -98,6 +94,10 @@ export default class Three {
       for (const branch of this.RootSystem.branches) {
         branch.update(deltaTime);
       }
+    }
+
+    if (this.LeafSystem) {
+      this.LeafSystem.update(deltaTime);
     }
 
     this.renderer.render(this.scene, this.camera);
