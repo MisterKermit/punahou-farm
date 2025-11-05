@@ -1,9 +1,9 @@
-import * as T from 'three';
+import * as THREE from 'three';
 // eslint-disable-next-line import/no-unresolved
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-import AnimatedRootSystem from './rootsys.js';
+import { AnimatedRootSystem, DEFAULT_DECAY_METHOD } from './rootsys.js';
 
 import AnimatedLeafSystem from './leafsys.js';
 
@@ -17,9 +17,9 @@ export default class Three {
   constructor(canvas) {
     this.canvas = canvas;
 
-    this.scene = new T.Scene();
+    this.scene = new THREE.Scene();
 
-    this.camera = new T.PerspectiveCamera(
+    this.camera = new THREE.PerspectiveCamera(
       75,
       device.width / device.height,
       0.1,
@@ -30,7 +30,7 @@ export default class Three {
     this.scene.add(this.camera);
 
     this.loader = new GLTFLoader();
-    this.renderer = new T.WebGLRenderer({
+    this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       alpha: true,
       antialias: true,
@@ -41,7 +41,7 @@ export default class Three {
 
     this.controls = new OrbitControls(this.camera, this.canvas);
 
-    this.clock = new T.Clock();
+    this.clock = new THREE.Clock();
 
     this.setLights();
     // this.setModel('/src/models/taro/scene.gltf');
@@ -53,18 +53,42 @@ export default class Three {
   }
 
   setLights() {
-    this.directionLight = new T.DirectionalLight(new T.Color(1, 1, 1, 1), 2);
-    this.ambientLight = new T.AmbientLight(0xff_ff_ff, 1);
+    this.directionLight = new THREE.DirectionalLight(
+      new THREE.Color(1, 1, 1, 1),
+      2
+    );
+    this.ambientLight = new THREE.AmbientLight(0xff_ff_ff, 1);
     this.scene.add(this.directionLight);
     this.scene.add(this.ambientLight);
   }
 
   createRootSys() {
-    this.RootSystem = new AnimatedRootSystem(this.scene);
+    const config = {
+      maxDepth: 3,
+      baseBranchLength: 3,
+      spread: 0.01,
+      maxChildren: 1,
+      growthSpeed: 25, // ms between segment pieces
+      newBranchRate: 3000, // ms between new branches
+      startingBranches: 100,
+      startRadius: 0.15,
+      decayMethod: DEFAULT_DECAY_METHOD
+    };
+
+    this.RootSystem = new AnimatedRootSystem(this.scene, config);
   }
 
   createLeafSys() {
-    this.LeafSystem = new AnimatedLeafSystem(this.scene);
+    const config = {
+      maxHeight: 2.5,
+      maxRadius: 1,
+      growthSpeed: 1000,
+      spread: 0.01,
+      startingLeafs: 2,
+      leafModel: 'modelPath'
+    };
+
+    this.LeafSystem = new AnimatedLeafSystem(this.scene, config);
   }
 
   // regenerateSim() {}

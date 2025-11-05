@@ -55,26 +55,16 @@ class Branch {
 }
 
 export default class AnimatedLeafSystem {
-  constructor(
-    scene,
-    {
-      maxHeight = 3,
-      maxRadius = 0.7,
-      growthSpeed = 1000,
-      spread = 0.01,
-      startingLeafs = 5,
-      leafModel = 'modelPath'
-    } = {}
-  ) {
+  constructor(scene, config) {
     this.scene = scene;
 
     // parameters
-    this.maxHeight = maxHeight;
-    this.maxRadius = maxRadius;
-    this.growthSpeed = growthSpeed;
-    this.spread = spread;
-    this.startingLeafs = startingLeafs;
-    this.leafModel = leafModel;
+    this.maxHeight = config.maxHeight;
+    this.maxRadius = config.maxRadius;
+    this.growthSpeed = config.growthSpeed;
+    this.spread = config.spread;
+    this.startingLeafs = config.startingLeafs;
+    this.leafModel = config.leafModel;
 
     this.branches = [];
 

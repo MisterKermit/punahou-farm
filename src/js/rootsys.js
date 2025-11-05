@@ -86,35 +86,22 @@ const DecayMethods = {
   }
 };
 
-const DEFAULT_DECAY_METHOD = DecayMethods.EXPONENTIAL;
+export const DEFAULT_DECAY_METHOD = DecayMethods.SIGMOID;
 
-export default class AnimatedRootSystem {
-  constructor(
-    scene,
-    {
-      maxDepth = 3,
-      baseBranchLength = 3,
-      spread = 0.01,
-      maxChildren = 1,
-      growthSpeed = 25, // ms between segment pieces
-      newBranchRate = 3000, // ms between new branches
-      startingBranches = 100,
-      startRadius = 0.15,
-      decayMethod = DecayMethods.SIGMOID
-    } = {}
-  ) {
+export class AnimatedRootSystem {
+  constructor(scene, config) {
     this.scene = scene;
 
     // parameters
-    this.maxDepth = maxDepth;
-    this.baseBranchLength = baseBranchLength;
-    this.startRadius = startRadius;
-    this.spread = spread;
-    this.maxChildren = maxChildren;
-    this.growthSpeed = growthSpeed;
-    this.newBranchRate = newBranchRate;
-    this.startingBranches = startingBranches;
-    this.decayMethod = decayMethod || DEFAULT_DECAY_METHOD;
+    this.maxDepth = config.maxDepth;
+    this.baseBranchLength = config.baseBranchLength;
+    this.startRadius = config.startRadius;
+    this.spread = config.spread;
+    this.maxChildren = config.maxChildren;
+    this.growthSpeed = config.growthSpeed;
+    this.newBranchRate = config.newBranchRate;
+    this.startingBranches = config.startingBranches;
+    this.decayMethod = config.decayMethod;
 
     this.growthQueue = [];
     this.branches = [];
