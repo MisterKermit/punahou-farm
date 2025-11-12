@@ -3,9 +3,15 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-import { AnimatedRootSystem, DEFAULT_DECAY_METHOD } from './rootsys.js';
+import {
+  AnimatedRootSystem,
+  DEFAULT_DECAY_METHOD as rootDecayMethod
+} from './rootsys.js';
 
-import AnimatedLeafSystem from './leafsys.js';
+import {
+  AnimatedLeafSystem,
+  DEFAULT_DECAY_METHOD as stemDecayMethod
+} from './leafsys.js';
 
 const device = {
   width: window.innerWidth,
@@ -72,7 +78,7 @@ export default class Three {
       newBranchRate: 3000, // ms between new branches
       startingBranches: 100,
       startRadius: 0.15,
-      decayMethod: DEFAULT_DECAY_METHOD
+      decayMethod: rootDecayMethod
     };
 
     this.RootSystem = new AnimatedRootSystem(this.scene, config);
@@ -80,12 +86,15 @@ export default class Three {
 
   createLeafSys() {
     const config = {
-      maxHeight: 2.5,
-      maxRadius: 1,
-      growthSpeed: 1000,
-      spread: 0.01,
-      startingLeafs: 2,
-      leafModel: 'modelPath'
+      maxDepth: 4,
+      baseBranchLength: 2,
+      spread: 3,
+      maxChildren: 1,
+      growthSpeed: 100, // ms between segment pieces
+      newBranchRate: 30000, // ms between new branches
+      startingBranches: 3,
+      startRadius: 0.5,
+      decayMethod: stemDecayMethod
     };
 
     this.LeafSystem = new AnimatedLeafSystem(this.scene, config);
@@ -96,9 +105,7 @@ export default class Three {
   setModel(path) {
     this.loader.load(
       path,
-      (gltf) => {
-        this.scene.add(gltf.scene);
-      },
+      (gltf) => this.scene.add(gltf.scene),
       (xhr) => {
         console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
       },
@@ -122,6 +129,9 @@ export default class Three {
 
     if (this.LeafSystem) {
       this.LeafSystem.update(deltaTime);
+      for (const branch of this.LeafSystem.branches) {
+        branch.update(deltaTime);
+      }
     }
 
     this.renderer.render(this.scene, this.camera);

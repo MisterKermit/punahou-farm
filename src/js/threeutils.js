@@ -26,14 +26,15 @@ const ThreeUtils = {
     return scene.add(cone);
   },
   drawSpline(branch) {
-    if (branch.rootPoints.length > 0) {
+    const splinePoints = branch?.rootPoints || branch?.stemPoints;
+    if (splinePoints.length > 0) {
       const curve = new THREE.CatmullRomCurve3(
-        branch.rootPoints,
+        splinePoints,
         false,
         'catmullrom',
         1
       );
-      const points = curve.getPoints(branch.rootPoints.length * 5);
+      const points = curve.getPoints(splinePoints.length * 5);
 
       return this.genRootMesh({
         curvePoints: points,
