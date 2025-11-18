@@ -3,7 +3,7 @@ name: Build and Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main # or your default branch
+      - main
 
 jobs:
   build-deploy:
@@ -16,16 +16,24 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # Adjust version if needed
+          node-version: '18'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build webapp
         run: npm run build
+
+      - name: Inspect build output (debug)
+        run: |
+          echo "Dist listing:"
+          ls -la dist
+          echo "Dist index.html (first 200 lines):"
+          head -n 200 dist/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist # Change if your build output dir is different
+          publish_dir: ./dist
+          force: true
