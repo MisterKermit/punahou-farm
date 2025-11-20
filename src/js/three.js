@@ -86,14 +86,15 @@ export default class Three {
 
   createLeafSys() {
     const config = {
-      maxDepth: 4,
-      baseBranchLength: 2,
-      spread: 3,
-      maxChildren: 1,
+      maxDepth: 2,
+      baseBranchLength: 3,
+      startRadius: 0.3,
+      spread: 0.4,
+      // maxChildren: 1,
       growthSpeed: 100, // ms between segment pieces
-      newBranchRate: 30000, // ms between new branches
-      startingBranches: 3,
-      startRadius: 0.5,
+      newBranchRate: 3000, // ms between new branches
+      startingBuds: 3,
+      startingBranchesPerBud: 2,
       decayMethod: stemDecayMethod
     };
 
