@@ -21,15 +21,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set base path for GitHub Pages (Vite only)
+        run: |
+          if [ -f vite.config.js ]; then
+            if ! grep -q "base: '/punahou-farm/'" vite.config.js; then
+              sed -i "1s;^;export default { base: '/punahou-farm/', };\n;" vite.config.js
+              echo "Added base path to vite.config.js for GitHub Pages"
+            fi
+          fi
+
       - name: Build webapp
         run: npm run build
 
       - name: Inspect build output (debug)
         run: |
-          echo "Dist listing:"
+          echo "Dist folder content:"
           ls -la dist
+          find dist -type f
           echo "Dist index.html (first 200 lines):"
           head -n 200 dist/index.html
+
+      - name: Setup Puppeteer for browser console log capture
+        run: |
+          npm install --save-dev puppeteer http-server
+          npx http-server ./dist -p 8080 &> /dev/null &
+          sleep 3
+          node .github/scripts/capture-console.js
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
