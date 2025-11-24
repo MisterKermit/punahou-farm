@@ -21,20 +21,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set base path for GitHub Pages (Vite only)
-        run: |
-          if [ -f vite.config.js ]; then
-            if ! grep -q "base: '/punahou-farm/'" vite.config.js; then
-              temp=$(mktemp)
-              printf "%s\n" "export default {base: '/punahou-farm/',};" > "$temp"
-              cat vite.config.js >> "$temp"
-              mv "$temp" vite.config.js
-              echo "Added base path to vite.config.js for Github Pages"
-            fi
-          fi
-
+      # Removed the previous "Set base path for GitHub Pages" step which prepended a new export default,
+      # causing "Multiple exports with the same name 'default'".
       - name: Build webapp
-        run: npm run build
+        # Pass the GitHub Pages base path to Vite at build time instead of editing vite.config.js
+        run: npm run build -- --base /punahou-farm/
 
       - name: Inspect build output (debug)
         run: |
