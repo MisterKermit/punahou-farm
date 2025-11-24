@@ -35,13 +35,6 @@ jobs:
           echo "Dist index.html (first 200 lines):"
           head -n 200 dist/index.html
 
-      - name: Setup Puppeteer for browser console log capture
-        run: |
-          npm install --save-dev puppeteer http-server
-          npx http-server ./dist -p 8080 &> /dev/null &
-          sleep 3
-          node .github/scripts/capture-console.js
-
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
