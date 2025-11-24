@@ -103,6 +103,17 @@ const ThreeUtils = {
     }
 
     return { verticesGen, indicesGen };
+  },
+  generate3dNoiseVector({ ScalarBias, NormVectorBias }) {
+    let vec = new THREE.Vector3();
+    vec = vec.randomDirection();
+
+    if (ScalarBias) vec = vec.multiplyScalar(ScalarBias);
+    if (NormVectorBias) vec = vec.multiply(NormVectorBias);
+    return vec;
+  },
+  getRandomInt(max) {
+    return Math.floor(Math.random() * max);
   }
 };
 

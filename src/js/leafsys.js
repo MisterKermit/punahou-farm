@@ -13,6 +13,8 @@ class StemSegment {
 
     this.timer = 0;
 
+    this.done = false;
+
     this.vertices = [];
     this.indices = [];
 
@@ -23,7 +25,7 @@ class StemSegment {
 
     this.tubeMat = new THREE.MeshStandardMaterial({
       color: 0x14_33_00,
-      emissive: 0x5c_e6_00,
+      emissive: 0x6b_d8_22,
       emissiveIntensity: 0.4,
       roughness: 0.4,
       metalness: 0.05,
@@ -34,6 +36,7 @@ class StemSegment {
     this.scene.add(this.mesh);
   }
   update(deltaTime) {
+    if (this.done) return;
     this.timer += deltaTime;
     if (this.timer < this.growthSpeed) return;
     this.timer = 0;
@@ -49,9 +52,11 @@ class StemSegment {
     }
 
     const ind = this.indiceGen.next();
-    if (!ind.done) this.indices.push(...ind.value);
-
-    // if (this.vertices.length < 6 || this.indices.length < 6) return;
+    if (ind.done) {
+      this.#Done();
+    } else {
+      this.indices.push(...ind.value);
+    }
 
     const geom = new THREE.BufferGeometry();
     geom.setAttribute(
@@ -63,6 +68,11 @@ class StemSegment {
 
     if (this.mesh.geometry) this.mesh.geometry.dispose();
     this.mesh.geometry = geom;
+  }
+  #Done() {
+    this.done = true;
+    // ThreeUtils.addSphere(this.scene, { position: this.end.point });
+    // TODO: Add leaf at the end
   }
 }
 
@@ -78,8 +88,8 @@ const DecayMethods = {
   INVERSE: (startRadius, currentDepth) => {
     return startRadius * (1 / currentDepth);
   },
-  EXPONENTIAL: (startRadius, currentDepth) => {
-    return startRadius * Math.pow(0.65, currentDepth);
+  EXPONENTIAL: (startRadius, currentDepth, thicknessConstant = 0.8) => {
+    return startRadius * Math.pow(thicknessConstant, currentDepth);
   },
   SIGMOID: (startRadius, currentDepth) => {
     return startRadius * (1 / (1 + Math.exp(currentDepth)));
@@ -97,19 +107,25 @@ export class AnimatedLeafSystem {
     this.baseBranchLength = config.baseBranchLength;
     this.startRadius = config.startRadius;
     this.spread = config.spread;
-    this.maxChildren = config.maxChildren;
+    // UNUSED: this.maxChildren = config.maxChildren;
     this.growthSpeed = config.growthSpeed;
     this.newBranchRate = config.newBranchRate;
-    this.startingBranches = config.startingBranches;
+    this.startingBuds = config.startingBuds;
+    this.startingBranchesPerBud = config.startingBranchesPerBud;
     this.decayMethod = config.decayMethod;
 
+    this.CORM_CONSTANTS = 1;
+
     this.growthQueue = [];
+    this.buds = [];
     this.branches = [];
 
     // stem node at origin
     this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
 
-    for (let index = 0; index < this.startingBranches; index++) {
+    const branchesNumber = this.startingBuds * this.startingBranchesPerBud;
+
+    for (let index = 0; index < branchesNumber; index++) {
       this.growthQueue.push({
         node: this.root,
         branchLength: this.baseBranchLength
@@ -124,6 +140,12 @@ export class AnimatedLeafSystem {
     this.lastGrowthTime += deltaTime;
     if (this.lastGrowthTime < this.newBranchRate) return;
 
+    if (this.buds.length <= 0) {
+      for (let index = 0; index < this.startingBuds; index++) {
+        this.growBud();
+      }
+    }
+
     if (this.growthQueue.length > 0) {
       this.lastGrowthTime = 0;
 
@@ -131,26 +153,43 @@ export class AnimatedLeafSystem {
       const branchesPerFrame = 1;
       for (let index = 0; index < branchesPerFrame; index++) {
         if (this.growthQueue.length <= 0) return;
+        // Randomly assign branch to a bud. Create the bud if not exist and delay the growth.
+        const budIndex = ThreeUtils.getRandomInt(this.buds.length);
+        const bud = this.buds[budIndex];
+        bud.children += 1;
 
         const { node, branchLength } = this.growthQueue.shift();
         if (node.depth < this.maxDepth) {
-          this.growNode(node, branchLength);
+          this.growNode(bud, node, branchLength);
         }
       }
     }
   }
 
-  growNode(node, branchLength) {
+  growBud() {
+    const dirVector = ThreeUtils.generate3dNoiseVector({ ScalarBias: 1 });
+    dirVector.setY(Math.abs(dirVector.y));
+    dirVector.multiplyScalar(this.CORM_CONSTANTS);
+
+    const bud = {
+      point: dirVector,
+      children: 0
+    };
+    this.buds.push(bud);
+    ThreeUtils.addSphere(this.scene, { position: bud.point, radius: 0.3 });
+  }
+
+  growNode(bud, node, branchLength) {
     if (node.depth < 0) return;
 
     const childPoints = [];
     const radii = [];
-    const homePoint = node.point.clone();
+    const homePoint = bud.point.clone();
 
     childPoints.push(homePoint);
     radii.push(node.radius);
 
-    const currentPos = node.point.clone();
+    const currentPos = homePoint.clone();
 
     for (
       let currentDepth = node.depth + 1;
@@ -159,15 +198,19 @@ export class AnimatedLeafSystem {
     ) {
       const randomLength = branchLength * (0.7 + Math.random() * 0.6);
 
-      const dx = (Math.random() * 2 - 1) * this.spread * 0.2;
-      const dy = Math.abs(Math.random() * this.spread);
-      const dz = (Math.random() * 2 - 1) * this.spread * 0.2;
-
-      const dirVector = new THREE.Vector3(dx, dy, dz).normalize();
+      const dirVector = ThreeUtils.generate3dNoiseVector({
+        NormVectorBias: new THREE.Vector3(
+          this.spread * currentDepth,
+          1,
+          this.spread * currentDepth
+        ).normalize()
+      });
+      dirVector.setY(Math.abs(dirVector.y));
 
       const endPosVector = currentPos
         .clone()
         .add(dirVector.multiplyScalar(randomLength));
+
       const radius = this.decayMethod(this.startRadius, currentDepth);
 
       const endPoint = new KDNode(endPosVector, radius, currentDepth);

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+
 // eslint-disable-next-line import/no-unresolved
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// eslint-disable-next-line import/no-unresolved
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 import {
@@ -49,6 +51,9 @@ export default class Three {
 
     this.clock = new THREE.Clock();
 
+    const gridHelper = new THREE.GridHelper(100, 10);
+    this.scene.add(gridHelper);
+
     this.setLights();
     // this.setModel('/src/models/taro/scene.gltf');
     this.setModel('punahou-farm/models/corm.glb');
@@ -86,21 +91,20 @@ export default class Three {
 
   createLeafSys() {
     const config = {
-      maxDepth: 4,
+      maxDepth: 5,
       baseBranchLength: 2,
-      spread: 3,
-      maxChildren: 1,
+      startRadius: 0.25,
+      spread: 0.05,
+      // maxChildren: 1,
       growthSpeed: 100, // ms between segment pieces
-      newBranchRate: 30000, // ms between new branches
-      startingBranches: 3,
-      startRadius: 0.5,
+      newBranchRate: 10_000, // ms between new branches
+      startingBuds: 3,
+      startingBranchesPerBud: 3,
       decayMethod: stemDecayMethod
     };
 
     this.LeafSystem = new AnimatedLeafSystem(this.scene, config);
   }
-
-  // regenerateSim() {}
 
   setModel(path) {
     this.loader.load(
