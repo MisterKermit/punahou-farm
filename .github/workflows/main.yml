@@ -25,8 +25,10 @@ jobs:
         run: |
           if [ -f vite.config.js ]; then
             if ! grep -q "base: '/punahou-farm/'" vite.config.js; then
-              temp=$(mktemp) printf "%s\n" "export default {base: '/punahou-farm/',};" > "$tmp"
-              cat vite.config.js >> "$tmp" mv "$tmp" vite.config.js
+              temp=$(mktemp)
+              printf "%s\n" "export default {base: '/punahou-farm/',};" > "$temp"
+              cat vite.config.js >> "$temp"
+              mv "$temp" vite.config.js
               echo "Added base path to vite.config.js for Github Pages"
             fi
           fi
