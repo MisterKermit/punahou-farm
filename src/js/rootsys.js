@@ -13,6 +13,8 @@ class RootSegment {
 
     this.timer = 0;
 
+    this.done = false;
+
     this.vertices = [];
     this.indices = [];
 
@@ -34,6 +36,7 @@ class RootSegment {
     this.scene.add(this.mesh);
   }
   update(deltaTime) {
+    if (this.done) return;
     this.timer += deltaTime;
     if (this.timer < this.growthSpeed) return;
     this.timer = 0;
@@ -49,7 +52,11 @@ class RootSegment {
     }
 
     const ind = this.indiceGen.next();
-    if (!ind.done) this.indices.push(...ind.value);
+    if (ind.done) {
+      this.done = true;
+    } else {
+      this.indices.push(...ind.value);
+    }
 
     // if (this.vertices.length < 6 || this.indices.length < 6) return;
 
