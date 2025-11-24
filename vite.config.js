@@ -21,5 +21,5 @@ export default {
       dest: path.join(__dirname, 'dist', '~partytown')
     })
   ],
-  base: "/punahou-farm"
+  base: process.env.NODE_ENV === 'production' ? '/punahou-farm/' : ''
 };
