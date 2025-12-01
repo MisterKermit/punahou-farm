@@ -56,7 +56,7 @@ export default class Three {
 
     this.setLights();
     // this.setModel('/src/models/taro/scene.gltf');
-    this.setModel('punahou-farm/models/corm.glb');
+    this.setModel('/models/corm.glb');
     this.createRootSys();
     this.createLeafSys();
     this.render();
