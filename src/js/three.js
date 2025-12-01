@@ -114,7 +114,7 @@ export default class Three {
         console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
       },
       (error) => {
-        console.error('Error loading GLTF model:', error);
+        alert(`Issue in loading model: ${error}`);
       }
     );
   }
