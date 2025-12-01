@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
 // eslint-disable-next-line import/no-unresolved
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 // eslint-disable-next-line import/no-unresolved
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import {
   AnimatedRootSystem,
