@@ -61,7 +61,7 @@ export default class Three {
     this.scene.add(gridHelper);
 
     this.setLights();
-    this.setModel('models/corm.glb');
+    this.setModel('models/CormModel.glb');
     this.createRootSys();
     this.createLeafSys();
     this.render();
