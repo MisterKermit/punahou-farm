@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 
-// eslint-disable-next-line import/no-unresolved
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-// eslint-disable-next-line import/no-unresolved
+import { DragControls } from 'three/examples/jsm/controls/DragControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import {
@@ -47,7 +46,14 @@ export default class Three {
     this.renderer.setSize(device.width, device.height);
     this.renderer.setPixelRatio(Math.min(device.pixelRatio, 2));
 
-    this.controls = new OrbitControls(this.camera, this.canvas);
+    this.plants = [];
+
+    this.orbitControls = new OrbitControls(this.camera, this.canvas);
+    this.dragControls = new DragControls(
+      this.plants,
+      this.camera,
+      this.renderer.domElement
+    );
 
     this.clock = new THREE.Clock();
 
@@ -55,7 +61,6 @@ export default class Three {
     this.scene.add(gridHelper);
 
     this.setLights();
-    // this.setModel('/src/models/taro/scene.gltf');
     this.setModel('models/corm.glb');
     this.createRootSys();
     this.createLeafSys();
