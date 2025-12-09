@@ -10,6 +10,8 @@ class RootSegment {
     this.rootPoints = rootPoints; // array of THREE.Vector3
     this.branchRadii = branchRadii;
     this.growthSpeed = growthSpeed;
+    this.branchSegs = new THREE.Group();
+    // this.scene.add(this.branchSegs);
 
     this.timer = 0;
 
@@ -34,7 +36,9 @@ class RootSegment {
 
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.tubeMat);
     this.scene.add(this.mesh);
+    this.branchSegs.add(this.mesh);
   }
+
   update(deltaTime) {
     if (this.done) return;
     this.timer += deltaTime;
@@ -112,6 +116,7 @@ export class AnimatedRootSystem {
 
     this.growthQueue = [];
     this.branches = [];
+    this.rootGroup = [];
 
     // root node at origin
     this.root = new KDNode(new THREE.Vector3(0, 0, 0), this.startRadius, 0);
@@ -129,6 +134,7 @@ export class AnimatedRootSystem {
 
   update(deltaTime) {
     this.lastGrowthTime += deltaTime;
+    // console.log(this.lastGrowthTime);
     if (this.lastGrowthTime < this.newBranchRate) return;
 
     if (this.growthQueue.length > 0) {
@@ -143,8 +149,17 @@ export class AnimatedRootSystem {
         if (node.depth < this.maxDepth) {
           this.growNode(node, branchLength);
         }
+
+        for (const branch of this.branches) {
+          if (!this.rootGroup.includes(branch.branchSegs)) {
+            this.rootGroup.push(branch.branchSegs);
+          }
+        }
       }
+
     }
+    // console.log(this.rootGroup);
+
   }
 
   growNode(node, branchLength) {
@@ -191,6 +206,7 @@ export class AnimatedRootSystem {
         });
         this.branches.push(branch);
 
+        
         this.growthQueue.push({
           node: endPoint,
           branchLength: homePoint.distanceTo(endPosVector)

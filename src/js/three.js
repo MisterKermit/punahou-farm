@@ -52,14 +52,22 @@ export default class Three {
     this.dragControls = new DragControls(
       this.plants,
       this.camera,
-      this.renderer.domElement
+      this.renderer.domElement,
+      this.transformGroup = true,
+      this.recursive = false
     );
+    
+    this.dragControls.addEventListener( 'dragstart', function ( event ) {
+      event.object.material.emissive.set( 0xaaaaaa );
+    } );
+    this.dragControls.addEventListener( 'dragend', function ( event ) {
+      event.object.material.emissive.set( 0x000000 );
+    } );
 
     this.clock = new THREE.Clock();
 
     const gridHelper = new THREE.GridHelper(100, 10);
     this.scene.add(gridHelper);
-
     this.setLights();
     this.setModel('models/CormModel.glb');
     this.createRootSys();
@@ -128,6 +136,7 @@ export default class Three {
     // const elapsedTime = this.clock.getElapsedTime();
     const deltaTime = this.clock.getDelta() * 10_000; // convert to ms
 
+    
     // Update root system animation
     if (this.RootSystem) {
       this.RootSystem.update(deltaTime);
@@ -135,6 +144,9 @@ export default class Three {
         branch.update(deltaTime);
       }
     }
+
+    this.plants = this.RootSystem.rootGroup
+    // console.log(this.RootSystem.rootGroup.children.length);
 
     if (this.LeafSystem) {
       this.LeafSystem.update(deltaTime);
